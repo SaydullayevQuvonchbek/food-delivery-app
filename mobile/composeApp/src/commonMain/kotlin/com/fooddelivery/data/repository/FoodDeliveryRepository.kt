@@ -557,11 +557,51 @@ class FoodDeliveryRepository {
     }
 
     fun addPaymentCard(card: SavedPaymentCard) {
-        _savedCards.update { list -> list + card.copy(id = list.size.toLong() + 1) }
+        val newCard = card.copy(id = _savedCards.value.size.toLong() + 1)
+        _savedCards.update { list -> list + newCard }
+
+        scope.launch {
+            try {
+                httpClient.post("${ApiConfig.BASE_URL}/cards") {
+                    contentType(ContentType.Application.Json)
+                    headers {
+                        append(HttpHeaders.Accept, "application/json")
+                        ApiConfig.AUTH_TOKEN?.let { token ->
+                            append(HttpHeaders.Authorization, "Bearer $token")
+                        }
+                    }
+                    setBody(
+                        buildJsonObject {
+                            put("card_holder_name", card.cardHolderName)
+                            put("card_number", "860012345678" + card.lastFour)
+                            put("expiry_date", card.expiryDate)
+                            put("card_type", card.cardType)
+                        }
+                    )
+                }
+            } catch (e: Exception) {
+                // Keep local card
+            }
+        }
     }
 
     fun removePaymentCard(cardId: Long) {
         _savedCards.update { list -> list.filterNot { it.id == cardId } }
+
+        scope.launch {
+            try {
+                httpClient.delete("${ApiConfig.BASE_URL}/cards/$cardId") {
+                    headers {
+                        append(HttpHeaders.Accept, "application/json")
+                        ApiConfig.AUTH_TOKEN?.let { token ->
+                            append(HttpHeaders.Authorization, "Bearer $token")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                // Keep local deletion
+            }
+        }
     }
 
     fun placeOrder(address: String = "New York City, BC54 Berlin", paymentMethod: String = "card", notes: String = ""): Order {
