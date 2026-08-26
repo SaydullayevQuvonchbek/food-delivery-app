@@ -1,5 +1,6 @@
 package com.fooddelivery.presentation.tracking
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -9,18 +10,20 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.ChatBubble
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.fooddelivery.components.AppHeaderBar
 import com.fooddelivery.data.repository.FoodDeliveryRepository
 import com.fooddelivery.theme.*
 
@@ -32,122 +35,131 @@ fun DeliveryTrackingScreen(
     onNavigateToCall: (Long) -> Unit
 ) {
     val courier = repository.currentCourier
+    val lastOrder by repository.lastCreatedOrder.collectAsState()
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        // Map Mock Background with Route and Pins
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color(0xFFE5E3DF))
-        ) {
-            // Map Roads simulation
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(top = 80.dp),
-                verticalArrangement = Arrangement.SpaceAround
-            ) {
-                for (i in 0..6) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(2.dp)
-                            .background(Color.White.copy(alpha = 0.7f))
-                    )
-                }
-            }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFE8ECEF))
+    ) {
+        // Map Simulation Background
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val width = size.width
+            val height = size.height
 
-            // Simulated Route Line (Orange)
-            Box(
-                modifier = Modifier
-                    .offset(x = 60.dp, y = 200.dp)
-                    .width(180.dp)
-                    .height(8.dp)
-                    .background(PrimaryOrange, RoundedCornerShape(4.dp))
+            // Simulated map roads (Light Gray Lines)
+            drawLine(
+                color = Color.White,
+                start = Offset(0f, height * 0.35f),
+                end = Offset(width, height * 0.35f),
+                strokeWidth = 24.dp.toPx()
             )
-            Box(
-                modifier = Modifier
-                    .offset(x = 232.dp, y = 200.dp)
-                    .width(8.dp)
-                    .height(140.dp)
-                    .background(PrimaryOrange, RoundedCornerShape(4.dp))
+            drawLine(
+                color = Color.White,
+                start = Offset(width * 0.4f, 0f),
+                end = Offset(width * 0.4f, height),
+                strokeWidth = 28.dp.toPx()
+            )
+            drawLine(
+                color = Color.White,
+                start = Offset(0f, height * 0.6f),
+                end = Offset(width, height * 0.6f),
+                strokeWidth = 20.dp.toPx()
+            )
+            drawLine(
+                color = Color.White,
+                start = Offset(width * 0.75f, 0f),
+                end = Offset(width * 0.75f, height),
+                strokeWidth = 18.dp.toPx()
             )
 
-            // Pin Courier
-            Box(
-                modifier = Modifier
-                    .offset(x = 220.dp, y = 250.dp)
-                    .size(32.dp)
-                    .background(PrimaryOrange, CircleShape)
-                    .border(3.dp, TextWhite, CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(text = "🛵", fontSize = 16.sp)
-            }
-
-            // Pin Destination
-            Box(
-                modifier = Modifier
-                    .offset(x = 50.dp, y = 190.dp)
-                    .size(28.dp)
-                    .background(TextPrimary, CircleShape)
-                    .border(2.dp, TextWhite, CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(text = "📍", fontSize = 14.sp)
-            }
-
-            // Floating Location Button
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .padding(end = 16.dp, bottom = 120.dp)
-                    .size(44.dp)
-                    .background(BackgroundWhite, CircleShape)
-                    .shadow(4.dp, CircleShape)
-                    .clickable { /* Re-center */ },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.MyLocation,
-                    contentDescription = "Center Location",
-                    tint = TextPrimary,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
+            // Orange Route Line (Restaurant -> Courier -> User)
+            val pathEffect = PathEffect.dashPathEffect(floatArrayOf(20f, 10f), 0f)
+            drawLine(
+                color = PrimaryOrange,
+                start = Offset(width * 0.25f, height * 0.28f),
+                end = Offset(width * 0.4f, height * 0.35f),
+                strokeWidth = 6.dp.toPx(),
+                pathEffect = pathEffect
+            )
+            drawLine(
+                color = PrimaryOrange,
+                start = Offset(width * 0.4f, height * 0.35f),
+                end = Offset(width * 0.65f, height * 0.48f),
+                strokeWidth = 6.dp.toPx()
+            )
         }
 
-        // Top Back Button & Title Card
-        Row(
+        // Restaurant Marker (Source)
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 24.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .offset(x = 80.dp, y = 180.dp)
+                .size(44.dp)
+                .background(SurfaceLight, CircleShape)
+                .border(2.dp, PrimaryOrange, CircleShape),
+            contentAlignment = Alignment.Center
         ) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .background(PrimaryOrange, CircleShape)
-                    .clickable { onBackClick() },
-                contentAlignment = Alignment.Center
+            Text(text = "🏪", fontSize = 20.sp)
+        }
+
+        // Destination Marker (User)
+        Box(
+            modifier = Modifier
+                .offset(x = 240.dp, y = 300.dp)
+                .size(48.dp)
+                .background(DangerRed, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Filled.LocationOn,
+                contentDescription = null,
+                tint = TextWhite,
+                modifier = Modifier.size(28.dp)
+            )
+        }
+
+        // Courier Scooter Marker (Live Animated/Placed on map)
+        Box(
+            modifier = Modifier
+                .offset(x = 150.dp, y = 220.dp)
+                .size(52.dp)
+                .background(PrimaryOrange, CircleShape)
+                .border(3.dp, BackgroundWhite, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(text = "🛵", fontSize = 26.sp)
+        }
+
+        // Top Navigation and Title
+        AppHeaderBar(
+            title = "Track Order",
+            onBackClick = onBackClick,
+            modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding()
+        )
+
+        // Estimated Time Capsule Badge
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 80.dp)
+                .clip(RoundedCornerShape(30.dp))
+                .background(BackgroundWhite)
+                .border(1.dp, BorderLight, RoundedCornerShape(30.dp))
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)
             ) {
-                Text(
-                    text = "‹",
-                    style = MaterialTheme.typography.headlineMedium.copy(color = TextWhite)
+                Icon(
+                    imageVector = Icons.Filled.Navigation,
+                    contentDescription = null,
+                    tint = PrimaryOrange,
+                    modifier = Modifier.size(18.dp)
                 )
-            }
-
-            Spacer(Modifier.width(16.dp))
-
-            Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = BackgroundWhite,
-                shadowElevation = 4.dp
-            ) {
+                Spacer(Modifier.width(8.dp))
                 Text(
-                    text = "Delivered your order",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)
+                    text = "10-15 min remaining",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = TextPrimary)
                 )
             }
         }
@@ -157,6 +169,7 @@ fun DeliveryTrackingScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
                 .clip(BottomSheetShape)
                 .background(BackgroundWhite),
             shape = BottomSheetShape,
@@ -168,7 +181,7 @@ fun DeliveryTrackingScreen(
                     .fillMaxWidth()
                     .padding(20.dp)
             ) {
-                // Courier Info Card (Black / Dark Capsule)
+                // Courier Info Card (Dark Capsule)
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(24.dp),
@@ -248,7 +261,7 @@ fun DeliveryTrackingScreen(
                     }
                 }
 
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(18.dp))
 
                 // Delivery Time
                 Text(
@@ -261,12 +274,12 @@ fun DeliveryTrackingScreen(
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                 )
 
-                Spacer(Modifier.height(18.dp))
+                Spacer(Modifier.height(16.dp))
 
                 // Delivery Stepper (4 steps)
                 DeliveryStepperView()
 
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(18.dp))
 
                 // Order summary snippet
                 Row(
@@ -281,13 +294,13 @@ fun DeliveryTrackingScreen(
                         )
                         Spacer(Modifier.height(2.dp))
                         Text(
-                            text = "2 Burger With Meat",
+                            text = lastOrder?.items?.firstOrNull()?.let { "${it.quantity} ${it.food.name}" } ?: "2 Burger With Meat",
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
                         )
                     }
 
                     Text(
-                        text = "$283",
+                        text = "$ ${lastOrder?.total?.toInt() ?: 283}",
                         style = MaterialTheme.typography.titleMedium.copy(
                             color = PrimaryOrange,
                             fontWeight = FontWeight.Bold

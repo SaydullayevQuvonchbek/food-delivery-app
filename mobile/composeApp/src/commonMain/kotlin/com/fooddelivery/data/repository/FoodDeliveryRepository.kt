@@ -1,37 +1,32 @@
 package com.fooddelivery.data.repository
 
+import com.fooddelivery.data.network.ApiConfig
+import com.fooddelivery.data.network.createHttpClient
 import com.fooddelivery.domain.models.*
+import io.ktor.client.call.*
+import io.ktor.client.request.*
+import io.ktor.http.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 class FoodDeliveryRepository {
 
-    private val _currentUser = MutableStateFlow(
-        User(
-            id = 1,
-            fullName = "Albert Stevano Bajefski",
-            email = "Albertstevano@gmail.com",
-            phone = "+1 325-433-7656",
-            dateOfBirth = "19/06/1999",
-            gender = "Male",
-            avatarUrl = ""
-        )
-    )
-    val currentUser: StateFlow<User> = _currentUser.asStateFlow()
+    private val httpClient = createHttpClient()
+    private val scope = CoroutineScope(Dispatchers.Default)
 
-    private val _categories = MutableStateFlow(
-        listOf(
-            Category(1, "Burger", "🍔", isSelected = true),
-            Category(2, "Taco", "🌮"),
-            Category(3, "Drink", "🥤"),
-            Category(4, "Pizza", "🍕")
-        )
+    private val defaultCategories = listOf(
+        Category(1, "Burger", "🍔", isSelected = true),
+        Category(2, "Taco", "🌮"),
+        Category(3, "Drink", "🥤"),
+        Category(4, "Pizza", "🍕")
     )
-    val categories: StateFlow<List<Category>> = _categories.asStateFlow()
 
-    private val sampleFoods = listOf(
+    private val defaultFoods = listOf(
         Food(
             id = 1,
             categoryId = 1,
@@ -119,13 +114,32 @@ class FoodDeliveryRepository {
         )
     )
 
-    private val _foods = MutableStateFlow(sampleFoods)
+    private var allFoodsCache = defaultFoods
+    private var currentSelectedCategoryId: Long = 1L
+
+    private val _currentUser = MutableStateFlow(
+        User(
+            id = 1,
+            fullName = "Albert Stevano Bajefski",
+            email = "Albertstevano@gmail.com",
+            phone = "+1 325-433-7656",
+            dateOfBirth = "19/06/1999",
+            gender = "Male",
+            avatarUrl = ""
+        )
+    )
+    val currentUser: StateFlow<User> = _currentUser.asStateFlow()
+
+    private val _categories = MutableStateFlow(defaultCategories)
+    val categories: StateFlow<List<Category>> = _categories.asStateFlow()
+
+    private val _foods = MutableStateFlow(defaultFoods.filter { it.categoryId == 1L })
     val foods: StateFlow<List<Food>> = _foods.asStateFlow()
 
     private val _cartItems = MutableStateFlow(
         listOf(
-            CartItem(sampleFoods[0], quantity = 2, isSelected = true),
-            CartItem(sampleFoods[1], quantity = 1, isSelected = true)
+            CartItem(defaultFoods[0], quantity = 2, isSelected = true),
+            CartItem(defaultFoods[1], quantity = 1, isSelected = true)
         )
     )
     val cartItems: StateFlow<List<CartItem>> = _cartItems.asStateFlow()
@@ -157,14 +171,6 @@ class FoodDeliveryRepository {
                 lastFour = "4672",
                 cardType = "Paypal",
                 isDefault = false
-            ),
-            SavedPaymentCard(
-                id = 4,
-                cardHolderName = "Albert Stevano",
-                cardNumber = "**** **** 0582 4672",
-                lastFour = "4672",
-                cardType = "Apple Pay",
-                isDefault = false
             )
         )
     )
@@ -184,7 +190,7 @@ class FoodDeliveryRepository {
     val notifications: StateFlow<List<AppNotificationItem>> = _notifications.asStateFlow()
 
     private val _recentSearches = MutableStateFlow(
-        listOf("Burgers", "Fast food", "Dessert", "French", "Fastry")
+        listOf("Burgers", "Fast food", "Dessert", "French", "Pastry")
     )
     val recentSearches: StateFlow<List<String>> = _recentSearches.asStateFlow()
 
@@ -207,13 +213,71 @@ class FoodDeliveryRepository {
     )
     val chatMessages: StateFlow<List<ChatMessage>> = _chatMessages.asStateFlow()
 
+    private val _lastCreatedOrder = MutableStateFlow<Order?>(null)
+    val lastCreatedOrder: StateFlow<Order?> = _lastCreatedOrder.asStateFlow()
+
+    init {
+        fetchRemoteData()
+    }
+
+    fun fetchRemoteData() {
+        scope.launch {
+            try {
+                val catResponse: ApiResponse<List<Category>> = httpClient.get("${ApiConfig.BASE_URL}/categories").body()
+                if (catResponse.success && !catResponse.data.isNullOrEmpty()) {
+                    _categories.value = catResponse.data.mapIndexed { index, cat ->
+                        cat.copy(isSelected = if (currentSelectedCategoryId == 0L) index == 0 else cat.id == currentSelectedCategoryId)
+                    }
+                }
+            } catch (e: Exception) {
+                // Keep resilient fallback
+            }
+
+            try {
+                val foodResponse: ApiResponse<List<Food>> = httpClient.get("${ApiConfig.BASE_URL}/foods").body()
+                if (foodResponse.success && !foodResponse.data.isNullOrEmpty()) {
+                    allFoodsCache = foodResponse.data
+                    applyFoodFilter(currentSelectedCategoryId)
+                }
+            } catch (e: Exception) {
+                // Keep resilient fallback
+            }
+        }
+    }
+
     fun selectCategory(categoryId: Long) {
+        currentSelectedCategoryId = categoryId
         _categories.update { list ->
             list.map { it.copy(isSelected = it.id == categoryId) }
+        }
+        applyFoodFilter(categoryId)
+    }
+
+    private fun applyFoodFilter(categoryId: Long) {
+        _foods.update {
+            if (categoryId == 0L) {
+                allFoodsCache
+            } else {
+                val filtered = allFoodsCache.filter { it.categoryId == categoryId }
+                if (filtered.isNotEmpty()) filtered else allFoodsCache
+            }
+        }
+    }
+
+    fun searchFoods(query: String) {
+        if (query.isBlank()) {
+            applyFoodFilter(currentSelectedCategoryId)
+        } else {
+            _foods.update {
+                allFoodsCache.filter {
+                    it.name.contains(query, ignoreCase = true) || it.description.contains(query, ignoreCase = true)
+                }
+            }
         }
     }
 
     fun toggleFavorite(foodId: Long) {
+        allFoodsCache = allFoodsCache.map { if (it.id == foodId) it.copy(isFavorite = !it.isFavorite) else it }
         _foods.update { list ->
             list.map { if (it.id == foodId) it.copy(isFavorite = !it.isFavorite) else it }
         }
@@ -297,5 +361,53 @@ class FoodDeliveryRepository {
 
     fun removePaymentCard(cardId: Long) {
         _savedCards.update { list -> list.filterNot { it.id == cardId } }
+    }
+
+    fun placeOrder(address: String = "New York City, BC54 Berlin", paymentMethod: String = "card", notes: String = ""): Order {
+        val currentCart = _cartItems.value
+        val subtotal = currentCart.sumOf { it.totalPrice }
+        val deliveryFee = 2000.0
+        val discount = 3000.0
+        val total = (subtotal + deliveryFee - discount).coerceAtLeast(0.0)
+
+        val newOrder = Order(
+            id = (1000..9999).random().toLong(),
+            orderNumber = "ORD-${(100000..999999).random()}",
+            items = currentCart,
+            status = OrderStatus.PREPARING,
+            deliveryAddress = address,
+            subtotal = subtotal,
+            deliveryFee = deliveryFee,
+            discount = discount,
+            tax = 0.0,
+            total = total,
+            courier = currentCourier,
+            createdAt = "Just now"
+        )
+
+        _lastCreatedOrder.value = newOrder
+        clearCart()
+
+        // Asynchronously post to backend
+        scope.launch {
+            try {
+                httpClient.post("${ApiConfig.BASE_URL}/orders") {
+                    contentType(ContentType.Application.Json)
+                    setBody(
+                        mapOf(
+                            "address_id" to 1,
+                            "payment_method" to paymentMethod,
+                            "items" to currentCart.map {
+                                mapOf("food_id" to it.food.id, "quantity" to it.quantity)
+                            }
+                        )
+                    )
+                }
+            } catch (e: Exception) {
+                // Ignore failure if offline
+            }
+        }
+
+        return newOrder
     }
 }

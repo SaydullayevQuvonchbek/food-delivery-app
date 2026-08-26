@@ -48,9 +48,10 @@ fun HomeScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(BackgroundWhite)
+            .statusBarsPadding()
             .padding(horizontal = 20.dp)
     ) {
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(10.dp))
 
         // Top Location and Action Icons
         Row(
@@ -87,7 +88,7 @@ fun HomeScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Box(
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(42.dp)
                         .background(SurfaceLight, CircleShape)
                         .border(1.dp, BorderLight, CircleShape)
                         .clickable { onNavigateToSearch() },
@@ -97,13 +98,13 @@ fun HomeScreen(
                         imageVector = Icons.Outlined.Search,
                         contentDescription = "Search",
                         tint = TextPrimary,
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
 
                 Box(
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(42.dp)
                         .background(SurfaceLight, CircleShape)
                         .border(1.dp, BorderLight, CircleShape)
                         .clickable { onNavigateToNotifications() },
@@ -113,7 +114,7 @@ fun HomeScreen(
                         imageVector = Icons.Outlined.Notifications,
                         contentDescription = "Notifications",
                         tint = TextPrimary,
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                     // Notification red dot badge
                     Box(
@@ -127,20 +128,20 @@ fun HomeScreen(
             }
         }
 
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(16.dp))
 
         // Hero Promo Banner
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(140.dp)
+                .height(130.dp)
                 .clip(RoundedCornerShape(24.dp))
                 .background(
                     Brush.horizontalGradient(
                         listOf(Color(0xFF2C2523), Color(0xFF191615))
                     )
                 )
-                .padding(20.dp)
+                .padding(18.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxSize(),
@@ -153,18 +154,18 @@ fun HomeScreen(
                         style = MaterialTheme.typography.headlineSmall.copy(
                             color = TextWhite,
                             fontWeight = FontWeight.Bold,
-                            lineHeight = 26.sp
+                            lineHeight = 24.sp
                         )
                     )
                 }
                 Text(
                     text = "🍔🌮",
-                    fontSize = 52.sp
+                    fontSize = 46.sp
                 )
             }
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(18.dp))
 
         // Categories Header
         Row(
@@ -178,6 +179,7 @@ fun HomeScreen(
             )
             Text(
                 text = "See All",
+                modifier = Modifier.clickable { repository.selectCategory(0L) },
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = PrimaryOrange,
                     fontWeight = FontWeight.SemiBold
@@ -185,11 +187,11 @@ fun HomeScreen(
             )
         }
 
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(12.dp))
 
         // Category Horizontal Bar
         LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             items(categories) { category ->
@@ -200,7 +202,7 @@ fun HomeScreen(
             }
         }
 
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(16.dp))
 
         // 2-Column Food Grid
         LazyVerticalGrid(
@@ -236,7 +238,7 @@ fun CategoryChip(
                 RoundedCornerShape(16.dp)
             )
             .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .padding(horizontal = 16.dp, vertical = 10.dp)
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -284,7 +286,7 @@ fun FoodCard(
             ) {
                 Text(
                     text = if (food.categoryId == 1L) "🍔" else if (food.categoryId == 2L) "🌮" else if (food.categoryId == 3L) "🥤" else "🍕",
-                    fontSize = 54.sp
+                    fontSize = 52.sp
                 )
 
                 // Favorite Heart Badge

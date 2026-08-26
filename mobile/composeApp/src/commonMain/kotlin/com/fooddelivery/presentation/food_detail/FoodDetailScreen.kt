@@ -59,7 +59,7 @@ fun FoodDetailScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "🍔",
+                    text = "ðŸ”",
                     fontSize = 110.sp
                 )
 
@@ -80,7 +80,7 @@ fun FoodDetailScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "‹",
+                            text = "â€¹",
                             style = MaterialTheme.typography.headlineMedium.copy(color = TextWhite)
                         )
                     }
@@ -157,7 +157,7 @@ fun FoodDetailScreen(
                     horizontalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = "💲", fontSize = 14.sp)
+                        Text(text = "ðŸ’²", fontSize = 14.sp)
                         Spacer(Modifier.width(4.dp))
                         Text(
                             text = "Free Delivery",
@@ -166,7 +166,7 @@ fun FoodDetailScreen(
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = "⏱", fontSize = 14.sp)
+                        Text(text = "â±", fontSize = 14.sp)
                         Spacer(Modifier.width(4.dp))
                         Text(
                             text = food.deliveryTime,
@@ -248,7 +248,7 @@ fun FoodDetailScreen(
                                         .background(Color(0xFFE8E0D4)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text(text = "🍔", fontSize = 36.sp)
+                                    Text(text = "ðŸ”", fontSize = 36.sp)
                                 }
                                 Spacer(Modifier.height(6.dp))
                                 Text(
@@ -275,7 +275,8 @@ fun FoodDetailScreen(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .align(Alignment.BottomCenter),
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding(),
             color = BackgroundWhite,
             shadowElevation = 16.dp
         ) {

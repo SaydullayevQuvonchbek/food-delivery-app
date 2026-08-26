@@ -355,7 +355,7 @@ fun QuantityCounter(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "−",
+                text = "âˆ’",
                 style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
             )
         }
@@ -387,7 +387,7 @@ fun AppBottomBar(
     cartItemCount: Int = 0
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
         color = BackgroundWhite,
         shadowElevation = 16.dp
     ) {
