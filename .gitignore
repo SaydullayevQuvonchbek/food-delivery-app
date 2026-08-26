@@ -25,6 +25,16 @@ node_modules/
 npm-debug.log
 yarn-error.log
 
-# Temporary
+# Temporary & Sensitive
 *.tmp
 *.log
+*.txt
+*.cookie
+cookies.txt
+.env
+.env.*
+!.env.example
+Screenshot*.png
+*.png
+*.jpg
+*.jpeg

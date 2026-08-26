@@ -86,7 +86,7 @@ fun LoginScreen(
         Spacer(Modifier.height(30.dp))
 
         Text(
-            text = "Login to your\naccount.",
+            text = "Hisobingizga\nkiring.",
             style = MaterialTheme.typography.headlineLarge.copy(
                 fontWeight = FontWeight.Bold,
                 lineHeight = 36.sp
@@ -94,7 +94,7 @@ fun LoginScreen(
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "Please sign in to your account",
+            text = "Xush kelibsiz! Buyurtma berish uchun tizimga kiring",
             style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
         )
 
@@ -111,8 +111,8 @@ fun LoginScreen(
                 email = it
                 errorMessage = null
             },
-            label = "Email Address",
-            placeholder = "Enter Email",
+            label = "Email manzili",
+            placeholder = "Emailni kiriting",
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
         )
 
@@ -124,8 +124,8 @@ fun LoginScreen(
                 password = it
                 errorMessage = null
             },
-            label = "Password",
-            placeholder = "Password",
+            label = "Parol",
+            placeholder = "Parolni kiriting",
             isPassword = true
         )
 
@@ -136,7 +136,7 @@ fun LoginScreen(
             contentAlignment = Alignment.CenterEnd
         ) {
             Text(
-                text = "Forgot password?",
+                text = "Parolni unutdingizmi?",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = PrimaryOrange,
                     fontWeight = FontWeight.SemiBold
@@ -148,7 +148,7 @@ fun LoginScreen(
         Spacer(Modifier.height(24.dp))
 
         AppPrimaryButton(
-            text = "Sign In",
+            text = "Kirish",
             isLoading = isLoading,
             onClick = {
                 scope.launch {
@@ -185,11 +185,11 @@ fun LoginScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Don't have an account? ",
+                text = "Hisobingiz yo'qmi? ",
                 style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
             )
             Text(
-                text = "Register",
+                text = "Ro'yxatdan o'tish",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = PrimaryOrange,
                     fontWeight = FontWeight.Bold
@@ -231,7 +231,7 @@ fun RegisterScreen(
         Spacer(Modifier.height(30.dp))
 
         Text(
-            text = "Create your new\naccount",
+            text = "Yangi hisob\nyarating",
             style = MaterialTheme.typography.headlineLarge.copy(
                 fontWeight = FontWeight.Bold,
                 lineHeight = 36.sp
@@ -239,7 +239,7 @@ fun RegisterScreen(
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "Create an account to start looking for the food you like",
+            text = "Mazali taomlar buyurtma qilish uchun hisob oching",
             style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
         )
 
@@ -256,8 +256,8 @@ fun RegisterScreen(
                 email = it
                 errorMessage = null
             },
-            label = "Email Address",
-            placeholder = "Enter Email",
+            label = "Email manzili",
+            placeholder = "Emailni kiriting",
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
         )
 
@@ -269,7 +269,7 @@ fun RegisterScreen(
                 userName = it
                 errorMessage = null
             },
-            label = "Full Name",
+            label = "To'liq ism-familiya",
             placeholder = "Ism Familiya"
         )
 
@@ -281,7 +281,7 @@ fun RegisterScreen(
                 phone = it
                 errorMessage = null
             },
-            label = "Phone (ixtiyoriy)",
+            label = "Telefon raqami (ixtiyoriy)",
             placeholder = "+998 90 123 45 67",
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
         )
@@ -294,7 +294,7 @@ fun RegisterScreen(
                 password = it
                 errorMessage = null
             },
-            label = "Password",
+            label = "Parol",
             placeholder = "Kamida 8 ta belgi",
             isPassword = true
         )
@@ -331,7 +331,7 @@ fun RegisterScreen(
             Spacer(Modifier.width(10.dp))
 
             Text(
-                text = "I Agree with Terms of Service and Privacy Policy",
+                text = "Foydalanish shartlari va Maxfiylik siyosatiga roziman",
                 style = MaterialTheme.typography.bodySmall.copy(
                     color = TextPrimary,
                     fontWeight = FontWeight.Medium
@@ -342,7 +342,7 @@ fun RegisterScreen(
         Spacer(Modifier.height(24.dp))
 
         AppPrimaryButton(
-            text = "Register",
+            text = "Ro'yxatdan o'tish",
             enabled = termsAgreed,
             isLoading = isLoading,
             onClick = {
@@ -355,7 +355,6 @@ fun RegisterScreen(
                         errorMessage = "To'liq ismingizni kiriting"
                         return@launch
                     }
-                    // Server minimal 8 ta belgi talab qiladi - shuning uchun bu yerda ham 8
                     if (password.length < 8) {
                         errorMessage = "Parol kamida 8 ta belgidan iborat bo'lsin"
                         return@launch
@@ -385,11 +384,11 @@ fun RegisterScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Already have an account? ",
+                text = "Hisobingiz bormi? ",
                 style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
             )
             Text(
-                text = "Sign In",
+                text = "Kirish",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = PrimaryOrange,
                     fontWeight = FontWeight.Bold
