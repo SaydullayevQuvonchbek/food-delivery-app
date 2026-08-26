@@ -49,7 +49,20 @@ class OrderController extends Controller
             ];
         }
 
-        $discount = (!empty($validated['promo_code'])) ? 10900.00 : 0.00;
+        $discount = 0.00;
+        if (!empty($validated['promo_code'])) {
+            $promo = \App\Models\Promotion::where('code', strtoupper(trim($validated['promo_code'])))
+                ->where('is_active', true)
+                ->first();
+            if ($promo && $subtotal >= $promo->min_order_amount) {
+                if ($promo->discount_type === 'percent') {
+                    $discount = ($subtotal * $promo->discount_value) / 100;
+                } else {
+                    $discount = $promo->discount_value;
+                }
+                $promo->increment('usage_count');
+            }
+        }
         $deliveryFee = 0.00;
         $tax = $subtotal * 0.10;
         $total = max(0, $subtotal + $deliveryFee + $tax - $discount);

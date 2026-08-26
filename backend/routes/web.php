@@ -56,6 +56,12 @@ Route::prefix('admin')->group(function () {
         Route::get('/chat', [AdminChatController::class, 'index'])->name('admin.chat.index');
         Route::post('/chat/{chatId}/reply', [AdminChatController::class, 'reply'])->name('admin.chat.reply');
 
+        // Promokodlar & Aksiya
+        Route::get('/promotions', [\App\Http\Controllers\Admin\PromotionController::class, 'index'])->name('admin.promotions.index');
+        Route::post('/promotions', [\App\Http\Controllers\Admin\PromotionController::class, 'store'])->name('admin.promotions.store');
+        Route::post('/promotions/{id}/toggle', [\App\Http\Controllers\Admin\PromotionController::class, 'toggle'])->name('admin.promotions.toggle');
+        Route::delete('/promotions/{id}', [\App\Http\Controllers\Admin\PromotionController::class, 'destroy'])->name('admin.promotions.destroy');
+
         // Settings
         Route::get('/settings', [AdminSettingController::class, 'index'])->name('admin.settings.index');
         Route::post('/settings', [AdminSettingController::class, 'update'])->name('admin.settings.update');

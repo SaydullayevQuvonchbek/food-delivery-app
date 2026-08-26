@@ -88,6 +88,11 @@
                 <span>Mijozlar bilan Chat</span>
             </a>
 
+            <a href="{{ route('admin.promotions.index') }}" class="flex items-center space-x-3 px-3.5 py-3 rounded-xl text-sm font-medium transition-all {{ request()->routeIs('admin.promotions.*') ? 'bg-primary text-white shadow-lg shadow-orange-500/30 font-semibold' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+                <i class="fa-solid fa-ticket w-5 text-center text-base"></i>
+                <span>Promokodlar</span>
+            </a>
+
             <a href="{{ route('admin.settings.index') }}" class="flex items-center space-x-3 px-3.5 py-3 rounded-xl text-sm font-medium transition-all {{ request()->routeIs('admin.settings.*') ? 'bg-primary text-white shadow-lg shadow-orange-500/30 font-semibold' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
                 <i class="fa-solid fa-gear w-5 text-center text-base"></i>
                 <span>Sozlamalar</span>
