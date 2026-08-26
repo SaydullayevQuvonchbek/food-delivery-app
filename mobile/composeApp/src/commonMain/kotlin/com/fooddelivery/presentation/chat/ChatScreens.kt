@@ -9,11 +9,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CallEnd
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.*
@@ -103,10 +105,15 @@ fun ChatListItemRow(
             modifier = Modifier
                 .size(52.dp)
                 .clip(CircleShape)
-                .background(Color(0xFFDDD5CA)),
+                .background(PrimaryOrangeSoft),
             contentAlignment = Alignment.Center
         ) {
-            Text(text = "ðŸ‘¨â€ðŸ³", fontSize = 24.sp)
+            Icon(
+                imageVector = Icons.Filled.Person,
+                contentDescription = null,
+                tint = PrimaryOrange,
+                modifier = Modifier.size(28.dp)
+            )
         }
 
         Spacer(Modifier.width(14.dp))
@@ -176,7 +183,12 @@ fun ChatScreen(
                     .clickable { onBackClick() },
                 contentAlignment = Alignment.Center
             ) {
-                Text(text = "â€¹", style = MaterialTheme.typography.headlineMedium)
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = TextPrimary,
+                    modifier = Modifier.size(20.dp)
+                )
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -184,14 +196,19 @@ fun ChatScreen(
                     modifier = Modifier
                         .size(36.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFE5DDD5)),
+                        .background(PrimaryOrangeSoft),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(text = "ðŸ‘¨â€ðŸ³", fontSize = 18.sp)
+                    Icon(
+                        imageVector = Icons.Filled.Person,
+                        contentDescription = null,
+                        tint = PrimaryOrange,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
                 Spacer(Modifier.width(10.dp))
                 Text(
-                    text = "Stevano Clirover",
+                    text = courier.name,
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                 )
             }
@@ -244,7 +261,7 @@ fun ChatScreen(
                     .padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = "ðŸ˜Š", fontSize = 20.sp, modifier = Modifier.clickable { /* Emoji */ })
+                Text(text = "😊", fontSize = 20.sp, modifier = Modifier.clickable { /* Emoji */ })
                 Spacer(Modifier.width(10.dp))
 
                 Box(modifier = Modifier.weight(1f)) {
@@ -262,7 +279,7 @@ fun ChatScreen(
                     )
                 }
 
-                Text(text = "ðŸ“Ž", fontSize = 18.sp, modifier = Modifier.clickable { /* Attachment */ })
+                Text(text = "📎", fontSize = 18.sp, modifier = Modifier.clickable { /* Attachment */ })
             }
 
             Spacer(Modifier.width(10.dp))

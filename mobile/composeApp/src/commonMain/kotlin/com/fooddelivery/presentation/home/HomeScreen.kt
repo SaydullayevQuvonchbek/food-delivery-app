@@ -79,7 +79,7 @@ fun HomeScreen(
                         fontSize = 14.sp
                     )
                     Text(
-                        text = "New York City",
+                        text = "Tashkent, Uzbekistan",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 }

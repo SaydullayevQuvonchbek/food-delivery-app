@@ -24,6 +24,17 @@ class Food extends Model
         'is_available'
     ];
 
+    protected $casts = [
+        'category_id' => 'integer',
+        'price' => 'float',
+        'original_price' => 'float',
+        'rating' => 'float',
+        'review_count' => 'integer',
+        'is_free_delivery' => 'boolean',
+        'is_featured' => 'boolean',
+        'is_available' => 'boolean',
+    ];
+
     public function category()
     {
         return $this->belongsTo(Category::class);

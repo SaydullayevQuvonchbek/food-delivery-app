@@ -8,6 +8,11 @@ class Category extends Model
 {
     protected $fillable = ['name', 'icon', 'order_index', 'is_active'];
 
+    protected $casts = [
+        'order_index' => 'integer',
+        'is_active' => 'boolean',
+    ];
+
     public function foods()
     {
         return $this->hasMany(Food::class);

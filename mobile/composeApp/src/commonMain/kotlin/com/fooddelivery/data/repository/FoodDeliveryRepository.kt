@@ -3,7 +3,6 @@ package com.fooddelivery.data.repository
 import com.fooddelivery.data.network.ApiConfig
 import com.fooddelivery.data.network.createHttpClient
 import com.fooddelivery.domain.models.*
-import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
@@ -150,12 +149,8 @@ class FoodDeliveryRepository {
     private val _foods = MutableStateFlow(defaultFoods.filter { it.categoryId == 1L })
     val foods: StateFlow<List<Food>> = _foods.asStateFlow()
 
-    private val _cartItems = MutableStateFlow(
-        listOf(
-            CartItem(defaultFoods[0], quantity = 2, isSelected = true),
-            CartItem(defaultFoods[1], quantity = 1, isSelected = true)
-        )
-    )
+    // Real Cart starts empty
+    private val _cartItems = MutableStateFlow<List<CartItem>>(emptyList())
     val cartItems: StateFlow<List<CartItem>> = _cartItems.asStateFlow()
 
     private val _savedCards = MutableStateFlow(
@@ -255,6 +250,7 @@ class FoodDeliveryRepository {
                 _currentUser.value = userWithToken
                 _isLoggedIn.value = true
                 _hasSeenOnboarding.value = true
+                fetchRemoteData()
                 Result.success(userWithToken)
             } else {
                 val errorMsg = apiResp.message ?: apiResp.errors?.values?.firstOrNull()?.firstOrNull() ?: "Email yoki parol xato"
@@ -289,6 +285,7 @@ class FoodDeliveryRepository {
                 _currentUser.value = userWithToken
                 _isLoggedIn.value = true
                 _hasSeenOnboarding.value = true
+                fetchRemoteData()
                 Result.success(userWithToken)
             } else {
                 val errorMsg = apiResp.message ?: apiResp.errors?.values?.firstOrNull()?.firstOrNull() ?: "Ro'yxatdan o'tishda xatolik"
@@ -362,33 +359,47 @@ class FoodDeliveryRepository {
         ApiConfig.AUTH_TOKEN = null
         _isLoggedIn.value = false
         _currentUser.value = User()
+        _cartItems.value = emptyList()
+        _lastCreatedOrder.value = null
     }
 
     fun fetchRemoteData() {
         scope.launch {
             try {
-                val catResponse: ApiResponse<List<Category>> = httpClient.get("${ApiConfig.BASE_URL}/categories") {
+                val catResponseText = httpClient.get("${ApiConfig.BASE_URL}/categories") {
                     headers { append(HttpHeaders.Accept, "application/json") }
-                }.body()
+                }.bodyAsText()
+                val catResponse: ApiResponse<List<Category>> = jsonParser.decodeFromString(catResponseText)
                 if (catResponse.success && !catResponse.data.isNullOrEmpty()) {
                     _categories.value = catResponse.data.mapIndexed { index, cat ->
-                        cat.copy(isSelected = if (currentSelectedCategoryId == 0L) index == 0 else cat.id == currentSelectedCategoryId)
+                        val icon = when (cat.name.lowercase().trim()) {
+                            "burger" -> "🍔"
+                            "taco" -> "🌮"
+                            "drink" -> "🥤"
+                            "pizza" -> "🍕"
+                            else -> "🍲"
+                        }
+                        cat.copy(
+                            icon = icon,
+                            isSelected = if (currentSelectedCategoryId == 0L) index == 0 else cat.id == currentSelectedCategoryId
+                        )
                     }
                 }
             } catch (e: Exception) {
-                // Keep default categories
+                // Keep defaults if offline
             }
 
             try {
-                val foodResponse: ApiResponse<List<Food>> = httpClient.get("${ApiConfig.BASE_URL}/foods") {
+                val foodResponseText = httpClient.get("${ApiConfig.BASE_URL}/foods") {
                     headers { append(HttpHeaders.Accept, "application/json") }
-                }.body()
+                }.bodyAsText()
+                val foodResponse: ApiResponse<List<Food>> = jsonParser.decodeFromString(foodResponseText)
                 if (foodResponse.success && !foodResponse.data.isNullOrEmpty()) {
                     allFoodsCache = foodResponse.data
                     applyFoodFilter(currentSelectedCategoryId)
                 }
             } catch (e: Exception) {
-                // Keep default foods
+                // Keep defaults if offline
             }
         }
     }

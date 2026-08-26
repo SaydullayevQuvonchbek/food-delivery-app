@@ -1,7 +1,61 @@
 package com.fooddelivery.domain.models
 
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.*
+
+object FlexibleDoubleSerializer : KSerializer<Double> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("FlexibleDouble", PrimitiveKind.DOUBLE)
+    override fun serialize(encoder: Encoder, value: Double) = encoder.encodeDouble(value)
+    override fun deserialize(decoder: Decoder): Double {
+        val jsonDecoder = decoder as? JsonDecoder ?: return try { decoder.decodeDouble() } catch (e: Exception) { 0.0 }
+        val element = jsonDecoder.decodeJsonElement()
+        return if (element is JsonPrimitive) {
+            element.doubleOrNull ?: element.content.toDoubleOrNull() ?: 0.0
+        } else {
+            0.0
+        }
+    }
+}
+
+object FlexibleNullableDoubleSerializer : KSerializer<Double?> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("FlexibleNullableDouble", PrimitiveKind.DOUBLE)
+    override fun serialize(encoder: Encoder, value: Double?) {
+        if (value != null) encoder.encodeDouble(value) else encoder.encodeNull()
+    }
+    override fun deserialize(decoder: Decoder): Double? {
+        val jsonDecoder = decoder as? JsonDecoder ?: return try { decoder.decodeDouble() } catch (e: Exception) { null }
+        val element = jsonDecoder.decodeJsonElement()
+        return when (element) {
+            is JsonNull -> null
+            is JsonPrimitive -> {
+                if (element.content.isBlank() || element.content == "null") null
+                else element.doubleOrNull ?: element.content.toDoubleOrNull()
+            }
+            else -> null
+        }
+    }
+}
+
+object FlexibleBooleanSerializer : KSerializer<Boolean> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("FlexibleBoolean", PrimitiveKind.BOOLEAN)
+    override fun serialize(encoder: Encoder, value: Boolean) = encoder.encodeBoolean(value)
+    override fun deserialize(decoder: Decoder): Boolean {
+        val jsonDecoder = decoder as? JsonDecoder ?: return try { decoder.decodeBoolean() } catch (e: Exception) { false }
+        val element = jsonDecoder.decodeJsonElement()
+        return if (element is JsonPrimitive) {
+            element.booleanOrNull ?: (element.intOrNull == 1) ?: (element.content == "1" || element.content.equals("true", ignoreCase = true))
+        } else {
+            false
+        }
+    }
+}
 
 @Serializable
 data class ApiResponse<T>(
@@ -85,6 +139,7 @@ data class Category(
     val name: String = "",
     val icon: String = "🍔",
     @SerialName("is_selected")
+    @Serializable(with = FlexibleBooleanSerializer::class)
     val isSelected: Boolean = false
 )
 
@@ -95,9 +150,12 @@ data class Food(
     val categoryId: Long = 1,
     val name: String = "",
     val description: String = "",
+    @Serializable(with = FlexibleDoubleSerializer::class)
     val price: Double = 0.0,
     @SerialName("original_price")
+    @Serializable(with = FlexibleNullableDoubleSerializer::class)
     val originalPrice: Double? = null,
+    @Serializable(with = FlexibleDoubleSerializer::class)
     val rating: Double = 4.9,
     @SerialName("review_count")
     val reviewCount: Int = 120,
@@ -105,10 +163,12 @@ data class Food(
     @SerialName("delivery_time")
     val deliveryTime: String = "20 - 30 min",
     @SerialName("is_free_delivery")
+    @Serializable(with = FlexibleBooleanSerializer::class)
     val isFreeDelivery: Boolean = true,
     @SerialName("image_url")
     val imageUrl: String = "",
     @SerialName("is_favorite")
+    @Serializable(with = FlexibleBooleanSerializer::class)
     val isFavorite: Boolean = false
 )
 
@@ -140,11 +200,16 @@ data class Order(
     val status: OrderStatus = OrderStatus.PENDING,
     @SerialName("delivery_address")
     val deliveryAddress: String = "New York City, BC54 Berlin",
+    @Serializable(with = FlexibleDoubleSerializer::class)
     val subtotal: Double = 0.0,
     @SerialName("delivery_fee")
+    @Serializable(with = FlexibleDoubleSerializer::class)
     val deliveryFee: Double = 0.0,
+    @Serializable(with = FlexibleDoubleSerializer::class)
     val discount: Double = 0.0,
+    @Serializable(with = FlexibleDoubleSerializer::class)
     val tax: Double = 0.0,
+    @Serializable(with = FlexibleDoubleSerializer::class)
     val total: Double = 0.0,
     val courier: Courier? = null,
     @SerialName("created_at")
@@ -160,8 +225,11 @@ data class Courier(
     val phone: String = "+1 234 567 8900",
     @SerialName("avatar_url")
     val avatarUrl: String = "",
+    @Serializable(with = FlexibleDoubleSerializer::class)
     val rating: Double = 4.9,
+    @Serializable(with = FlexibleDoubleSerializer::class)
     val currentLat: Double = 37.7749,
+    @Serializable(with = FlexibleDoubleSerializer::class)
     val currentLng: Double = -122.4194
 )
 
@@ -175,6 +243,7 @@ data class Address(
     val houseNumber: String = "BC54 Berlin",
     val city: String = "New York",
     @SerialName("is_default")
+    @Serializable(with = FlexibleBooleanSerializer::class)
     val isDefault: Boolean = true
 )
 
@@ -193,6 +262,7 @@ data class SavedPaymentCard(
     @SerialName("card_type")
     val cardType: String = "MasterCard",
     @SerialName("is_default")
+    @Serializable(with = FlexibleBooleanSerializer::class)
     val isDefault: Boolean = false
 )
 
@@ -205,6 +275,7 @@ data class AppNotificationItem(
     val timeAgo: String = "Today",
     val type: String = "DISCOUNT",
     @SerialName("is_read")
+    @Serializable(with = FlexibleBooleanSerializer::class)
     val isRead: Boolean = false
 )
 
@@ -216,7 +287,9 @@ data class ChatMessage(
     val text: String = "",
     val timestamp: String = "Now",
     @SerialName("is_from_me")
+    @Serializable(with = FlexibleBooleanSerializer::class)
     val isFromMe: Boolean = true,
     @SerialName("is_read")
+    @Serializable(with = FlexibleBooleanSerializer::class)
     val isRead: Boolean = true
 )

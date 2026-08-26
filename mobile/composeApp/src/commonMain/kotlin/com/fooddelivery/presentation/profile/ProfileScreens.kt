@@ -65,10 +65,16 @@ fun ProfileScreen(
                     modifier = Modifier
                         .size(86.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFE5DDD3)),
+                        .background(PrimaryOrangeSoft),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(text = "ðŸ‘¨â€ðŸ’¼", fontSize = 42.sp)
+                    Text(
+                        text = (user.fullName.take(1).ifEmpty { "U" }).uppercase(),
+                        style = MaterialTheme.typography.headlineLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = PrimaryOrange
+                        )
+                    )
                 }
 
                 Box(
@@ -79,20 +85,25 @@ fun ProfileScreen(
                         .border(2.dp, BackgroundWhite, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(text = "ðŸ“·", fontSize = 12.sp)
+                    Icon(
+                        imageVector = Icons.Filled.PhotoCamera,
+                        contentDescription = "Change photo",
+                        tint = TextWhite,
+                        modifier = Modifier.size(14.dp)
+                    )
                 }
             }
 
             Spacer(Modifier.height(12.dp))
 
             Text(
-                text = user.fullName,
+                text = user.fullName.ifEmpty { "User" },
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             )
             Spacer(Modifier.height(2.dp))
             Text(
-                text = user.email,
+                text = user.email.ifEmpty { "user@example.com" },
                 style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary),
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             )
@@ -100,6 +111,7 @@ fun ProfileScreen(
             Spacer(Modifier.height(24.dp))
 
             // My Orders Widget
+            val lastOrder by repository.lastCreatedOrder.collectAsState()
             Surface(
                 shape = RoundedCornerShape(18.dp),
                 color = SurfaceLight,
@@ -116,9 +128,9 @@ fun ProfileScreen(
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                         Text(
-                            text = "See All",
+                            text = if (lastOrder != null) "Active" else "Empty",
                             style = MaterialTheme.typography.bodySmall.copy(
-                                color = PrimaryOrange,
+                                color = if (lastOrder != null) PrimaryOrange else TextSecondary,
                                 fontWeight = FontWeight.Bold
                             )
                         )
@@ -126,53 +138,61 @@ fun ProfileScreen(
 
                     Spacer(Modifier.height(12.dp))
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Order ID 888333777",
-                            style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
-                        )
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(PrimaryOrange)
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                    if (lastOrder != null) {
+                        val order = lastOrder!!
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "In Delivery",
-                                style = TextStyle(color = TextWhite, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                text = "Order ID ${order.orderNumber}",
+                                style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
                             )
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(PrimaryOrange)
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = "In Delivery",
+                                    style = TextStyle(color = TextWhite, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                )
+                            }
                         }
-                    }
 
-                    Spacer(Modifier.height(10.dp))
+                        Spacer(Modifier.height(10.dp))
 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(Color(0xFFE8DFD3)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(text = "ðŸ”", fontSize = 22.sp)
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(PrimaryOrangeSoft),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(text = "🍔", fontSize = 22.sp)
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = order.items.firstOrNull()?.food?.name ?: "Food Order",
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                                )
+                                Text(
+                                    text = "$ ${order.total.toInt()}",
+                                    style = MaterialTheme.typography.bodySmall.copy(color = PrimaryOrange, fontWeight = FontWeight.Bold)
+                                )
+                            }
                             Text(
-                                text = "Burger With Meat",
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
-                            )
-                            Text(
-                                text = "$ 12,230",
-                                style = MaterialTheme.typography.bodySmall.copy(color = PrimaryOrange, fontWeight = FontWeight.Bold)
+                                text = "${order.items.sumOf { it.quantity }} Items",
+                                style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
                             )
                         }
+                    } else {
                         Text(
-                            text = "14 Items",
+                            text = "Hozircha faol buyurtmalaringiz yo'q",
                             style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
                         )
                     }
@@ -346,10 +366,15 @@ fun PersonalDataScreen(
                     .align(Alignment.CenterHorizontally)
                     .size(80.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFFE5DDD3)),
+                    .background(PrimaryOrangeSoft),
                 contentAlignment = Alignment.Center
             ) {
-                Text(text = "ðŸ‘¨â€ðŸ’¼", fontSize = 40.sp)
+                Icon(
+                    imageVector = Icons.Filled.Person,
+                    contentDescription = null,
+                    tint = PrimaryOrange,
+                    modifier = Modifier.size(44.dp)
+                )
             }
 
             Spacer(Modifier.height(24.dp))
@@ -636,13 +661,13 @@ fun HelpCenterScreen(onBackClick: () -> Unit) {
 
             Spacer(Modifier.height(24.dp))
 
-            TopicCard(icon = "ðŸ’¡", title = "General", subtitle = "Basic question about Restate")
+            TopicCard(icon = "💡", title = "General", subtitle = "General questions about delivery")
             Spacer(Modifier.height(12.dp))
-            TopicCard(icon = "ðŸ’µ", title = "Sellers", subtitle = "All you need to know about selling your home to Restate")
+            TopicCard(icon = "💳", title = "Payment", subtitle = "Payment methods and refunds")
             Spacer(Modifier.height(12.dp))
-            TopicCard(icon = "ðŸ›’", title = "Buyers", subtitle = "Everything you need to know about buying with Restate")
+            TopicCard(icon = "🛒", title = "Orders", subtitle = "Tracking and order cancellation")
             Spacer(Modifier.height(12.dp))
-            TopicCard(icon = "ðŸ‘¥", title = "Agents", subtitle = "How buying agents and listing agents can work with Restate")
+            TopicCard(icon = "🛵", title = "Delivery", subtitle = "Delivery times and courier information")
         }
     }
 }

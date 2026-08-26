@@ -355,7 +355,7 @@ fun QuantityCounter(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "âˆ’",
+                text = "-",
                 style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
             )
         }

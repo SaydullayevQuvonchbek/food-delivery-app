@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ShoppingCart
@@ -38,8 +39,8 @@ fun FoodDetailScreen(
     onNavigateToCart: () -> Unit
 ) {
     val foods by repository.foods.collectAsState()
-    val food = foods.find { it.id == foodId } ?: foods.first()
-    var quantity by remember { mutableStateOf(4) }
+    val food = foods.find { it.id == foodId } ?: foods.firstOrNull() ?: Food(name = "Food")
+    var quantity by remember { mutableStateOf(1) }
     var currentSlide by remember { mutableStateOf(0) }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -59,7 +60,7 @@ fun FoodDetailScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "ðŸ”",
+                    text = "🍔",
                     fontSize = 110.sp
                 )
 
@@ -79,9 +80,11 @@ fun FoodDetailScreen(
                             .clickable { onBackClick() },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "â€¹",
-                            style = MaterialTheme.typography.headlineMedium.copy(color = TextWhite)
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = TextWhite,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
 
@@ -157,16 +160,16 @@ fun FoodDetailScreen(
                     horizontalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = "ðŸ’²", fontSize = 14.sp)
+                        Text(text = "🛵", fontSize = 14.sp)
                         Spacer(Modifier.width(4.dp))
                         Text(
-                            text = "Free Delivery",
+                            text = if (food.isFreeDelivery) "Free Delivery" else "Standard Delivery",
                             style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
                         )
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = "â±", fontSize = 14.sp)
+                        Text(text = "⏱", fontSize = 14.sp)
                         Spacer(Modifier.width(4.dp))
                         Text(
                             text = food.deliveryTime,
@@ -248,7 +251,7 @@ fun FoodDetailScreen(
                                         .background(Color(0xFFE8E0D4)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text(text = "ðŸ”", fontSize = 36.sp)
+                                    Text(text = "🍔", fontSize = 36.sp)
                                 }
                                 Spacer(Modifier.height(6.dp))
                                 Text(
