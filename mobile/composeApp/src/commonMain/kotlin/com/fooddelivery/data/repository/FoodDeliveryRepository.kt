@@ -560,7 +560,7 @@ class FoodDeliveryRepository {
                     }
                     setBody(
                         CreateOrderRequest(
-                            addressId = 1,
+                            addressId = null,
                             paymentMethod = paymentMethod,
                             items = currentCart.map {
                                 CreateOrderItemRequest(foodId = it.food.id, quantity = it.quantity)

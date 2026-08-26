@@ -105,7 +105,7 @@ data class ResetPasswordRequest(
 
 @Serializable
 data class CreateOrderRequest(
-    @SerialName("address_id") val addressId: Long = 1,
+    @SerialName("address_id") val addressId: Long? = null,
     @SerialName("payment_method") val paymentMethod: String = "card",
     val items: List<CreateOrderItemRequest>
 )
