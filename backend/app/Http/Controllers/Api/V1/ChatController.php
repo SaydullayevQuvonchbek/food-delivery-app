@@ -15,6 +15,24 @@ class ChatController extends Controller
             ->where('user_id', $request->user()->id)
             ->get();
 
+        if ($chats->isEmpty()) {
+            $courier = \App\Models\User::where('role', 'courier')->first() ?? $request->user();
+            $newChat = Chat::create([
+                'user_id' => $request->user()->id,
+                'courier_id' => $courier->id,
+                'order_id' => null
+            ]);
+            Message::create([
+                'chat_id' => $newChat->id,
+                'sender_id' => $courier->id,
+                'text' => "Salom! Buyurtmangiz yoki savollaringiz bo'yicha yordam berishga tayyorman 😊",
+                'is_read' => false
+            ]);
+            $chats = Chat::with(['courier', 'messages' => fn($q) => $q->latest()->limit(1)])
+                ->where('user_id', $request->user()->id)
+                ->get();
+        }
+
         return response()->json(['success' => true, 'data' => $chats]);
     }
 

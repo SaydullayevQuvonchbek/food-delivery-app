@@ -39,6 +39,11 @@ Route::prefix('v1')->group(function () {
         Route::post('/cards', [CardController::class, 'store']);
         Route::delete('/cards/{id}', [CardController::class, 'destroy']);
 
+        // User Addresses
+        Route::get('/addresses', [\App\Http\Controllers\Api\V1\AddressController::class, 'index']);
+        Route::post('/addresses', [\App\Http\Controllers\Api\V1\AddressController::class, 'store']);
+        Route::delete('/addresses/{id}', [\App\Http\Controllers\Api\V1\AddressController::class, 'destroy']);
+
         // Chats
         Route::get('/chats', [ChatController::class, 'index']);
         Route::get('/chats/{chatId}/messages', [ChatController::class, 'messages']);
