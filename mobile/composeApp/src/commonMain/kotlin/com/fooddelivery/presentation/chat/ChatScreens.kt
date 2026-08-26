@@ -40,15 +40,11 @@ fun ChatListScreen(
     onNavigateToChat: (Long) -> Unit
 ) {
     val courier = repository.currentCourier
+    val messages by repository.chatMessages.collectAsState()
+    val lastOrder by repository.lastCreatedOrder.collectAsState()
 
-    val chatList = listOf(
-        Triple("Geopart Etdsien", "Your Order Just Arrived!", "13.47"),
-        Triple("Stevano Clirover", "Your Order Just Arrived!", "11.23"),
-        Triple("Elisia Justin", "Your Order Just Arrived!", "11.23"),
-        Triple("Geopart Etdsien", "Your Order Just Arrived!", "13.47"),
-        Triple("Stevano Clirover", "Your Order Just Arrived!", "11.23"),
-        Triple("Elisia Justin", "Your Order Just Arrived!", "11.23")
-    )
+    val lastSupportMessage = messages.lastOrNull()?.text ?: "Assalomu alaykum! Qanday yordam bera olamiz?"
+    val lastSupportTime = messages.lastOrNull()?.timestamp ?: "Online"
 
     Column(
         modifier = Modifier
@@ -63,7 +59,7 @@ fun ChatListScreen(
                 .padding(horizontal = 20.dp)
         ) {
             Text(
-                text = "All Message",
+                text = "Muloqotlar",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
             )
 
@@ -73,13 +69,28 @@ fun ChatListScreen(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
                 contentPadding = PaddingValues(bottom = 90.dp)
             ) {
-                items(chatList) { item ->
+                // 1. Support Chat Desk (Admin Support)
+                item {
                     ChatListItemRow(
-                        name = item.first,
-                        message = item.second,
-                        time = item.third,
+                        name = "Insof Qo'llab-quvvatlash (Support)",
+                        message = lastSupportMessage,
+                        time = lastSupportTime,
+                        unreadCount = if (messages.isNotEmpty()) 1 else 0,
                         onClick = { onNavigateToChat(courier.id) }
                     )
+                }
+
+                // 2. Active Courier Chat (If user has an order)
+                if (lastOrder != null) {
+                    item {
+                        ChatListItemRow(
+                            name = "${courier.name} (Kuryer)",
+                            message = "Buyurtmangiz yo'lda (${lastOrder?.orderNumber ?: ""})",
+                            time = "Faol",
+                            unreadCount = 0,
+                            onClick = { onNavigateToChat(courier.id) }
+                        )
+                    }
                 }
             }
         }
@@ -91,6 +102,7 @@ fun ChatListItemRow(
     name: String,
     message: String,
     time: String,
+    unreadCount: Int = 0,
     onClick: () -> Unit
 ) {
     Row(
@@ -126,7 +138,8 @@ fun ChatListItemRow(
             Spacer(Modifier.height(2.dp))
             Text(
                 text = message,
-                style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
+                style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary),
+                maxLines = 1
             )
         }
 
@@ -135,17 +148,19 @@ fun ChatListItemRow(
                 text = time,
                 style = MaterialTheme.typography.bodySmall.copy(color = TextMuted)
             )
-            Spacer(Modifier.height(4.dp))
-            Box(
-                modifier = Modifier
-                    .size(20.dp)
-                    .background(PrimaryOrange, CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "3",
-                    style = TextStyle(color = TextWhite, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                )
+            if (unreadCount > 0) {
+                Spacer(Modifier.height(4.dp))
+                Box(
+                    modifier = Modifier
+                        .size(20.dp)
+                        .background(PrimaryOrange, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "$unreadCount",
+                        style = TextStyle(color = TextWhite, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    )
+                }
             }
         }
     }

@@ -13,6 +13,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.fooddelivery.data.storage.getLocalStorage
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -26,6 +28,14 @@ class FoodDeliveryRepository {
         isLenient = true
         coerceInputValues = true
         explicitNulls = false
+    }
+
+    private val storage by lazy {
+        try {
+            getLocalStorage()
+        } catch (e: Exception) {
+            null
+        }
     }
 
     private val defaultCategories = listOf(
@@ -228,11 +238,35 @@ class FoodDeliveryRepository {
     val lastCreatedOrder: StateFlow<Order?> = _lastCreatedOrder.asStateFlow()
 
     init {
+        try {
+            storage?.let { s ->
+                val savedToken = s.getString("auth_token")
+                val isLogged = s.getBoolean("is_logged_in", false)
+                val onboardingDone = s.getBoolean("onboarding_completed", false)
+                val userJson = s.getString("user_json")
+
+                if (!savedToken.isNullOrBlank() && isLogged) {
+                    ApiConfig.AUTH_TOKEN = savedToken
+                    _isLoggedIn.value = true
+                    _hasSeenOnboarding.value = true
+                    if (!userJson.isNullOrBlank()) {
+                        try {
+                            _currentUser.value = jsonParser.decodeFromString(userJson)
+                        } catch (e: Exception) {}
+                    }
+                } else if (onboardingDone) {
+                    _hasSeenOnboarding.value = true
+                }
+            }
+        } catch (e: Exception) {}
         fetchRemoteData()
     }
 
     fun completeOnboarding() {
         _hasSeenOnboarding.value = true
+        try {
+            storage?.setBoolean("onboarding_completed", true)
+        } catch (e: Exception) {}
     }
 
     suspend fun login(email: String, password: String): Result<User> {
@@ -252,6 +286,16 @@ class FoodDeliveryRepository {
                 _currentUser.value = userWithToken
                 _isLoggedIn.value = true
                 _hasSeenOnboarding.value = true
+
+                try {
+                    storage?.let { s ->
+                        s.setString("auth_token", token)
+                        s.setBoolean("is_logged_in", true)
+                        s.setBoolean("onboarding_completed", true)
+                        s.setString("user_json", jsonParser.encodeToString(userWithToken))
+                    }
+                } catch (e: Exception) {}
+
                 fetchRemoteData()
                 Result.success(userWithToken)
             } else {
@@ -287,6 +331,16 @@ class FoodDeliveryRepository {
                 _currentUser.value = userWithToken
                 _isLoggedIn.value = true
                 _hasSeenOnboarding.value = true
+
+                try {
+                    storage?.let { s ->
+                        s.setString("auth_token", token)
+                        s.setBoolean("is_logged_in", true)
+                        s.setBoolean("onboarding_completed", true)
+                        s.setString("user_json", jsonParser.encodeToString(userWithToken))
+                    }
+                } catch (e: Exception) {}
+
                 fetchRemoteData()
                 Result.success(userWithToken)
             } else {
@@ -363,6 +417,13 @@ class FoodDeliveryRepository {
         _currentUser.value = User()
         _cartItems.value = emptyList()
         _lastCreatedOrder.value = null
+        try {
+            storage?.let { s ->
+                s.remove("auth_token")
+                s.setBoolean("is_logged_in", false)
+                s.remove("user_json")
+            }
+        } catch (e: Exception) {}
     }
 
     fun fetchRemoteData() {
