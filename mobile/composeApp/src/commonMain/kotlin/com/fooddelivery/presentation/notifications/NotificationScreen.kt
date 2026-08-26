@@ -26,18 +26,42 @@ fun NotificationScreen(
     onBackClick: () -> Unit
 ) {
     val notifications by repository.notifications.collectAsState()
-    val todayNotifications = notifications.filter { it.timeAgo == "Today" }
-    val yesterdayNotifications = notifications.filter { it.timeAgo == "Yesterday" }
+
+    // Bildirishnomalar serverdan olinadi va ochilganda o'qilgan deb belgilanadi
+    LaunchedEffect(Unit) {
+        repository.loadNotifications()
+        repository.markNotificationsRead()
+    }
+
+    // Guruhlash sana bo'yicha (ilgari "Today"/"Yesterday" matni bilan solishtirilardi va
+    // serverdan kelgan sanalar hech qachon mos kelmasdi - ekran bo'sh qolardi)
+    val grouped = remember(notifications) { notifications.groupBy { it.timeAgo.ifBlank { "Boshqa" } } }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(BackgroundWhite)
+            .statusBarsPadding()
     ) {
         AppHeaderBar(
             title = "Notification",
             onBackClick = onBackClick
         )
+
+        if (notifications.isEmpty()) {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(top = 80.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(text = "🔔", fontSize = 44.sp)
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = "Hozircha bildirishnomalar yo'q",
+                    style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
+                )
+            }
+            return@Column
+        }
 
         LazyColumn(
             modifier = Modifier
@@ -46,32 +70,17 @@ fun NotificationScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp),
             contentPadding = PaddingValues(bottom = 30.dp)
         ) {
-            if (todayNotifications.isNotEmpty()) {
-                item {
+            grouped.forEach { (dateLabel, group) ->
+                item(key = "header_$dateLabel") {
                     Text(
-                        text = "Today",
+                        text = dateLabel,
                         style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary),
                         modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
                     )
                 }
 
-                items(todayNotifications) { item ->
-                    NotificationItemCard(item = item)
-                }
-            }
-
-            if (yesterdayNotifications.isNotEmpty()) {
-                item {
-                    Spacer(Modifier.height(10.dp))
-                    Text(
-                        text = "Yesterday",
-                        style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary),
-                        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
-                    )
-                }
-
-                items(yesterdayNotifications) { item ->
-                    NotificationItemCard(item = item)
+                items(group, key = { it.id }) { notification ->
+                    NotificationItemCard(item = notification)
                 }
             }
         }
@@ -84,21 +93,19 @@ fun NotificationItemCard(item: AppNotificationItem) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(SurfaceLight)
+            .background(if (item.isRead) SurfaceLight else PrimaryOrangeSoft)
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Distinct Badge Icon based on Type
         Box(
             modifier = Modifier
                 .size(46.dp)
                 .background(
                     when (item.type) {
-                        "DISCOUNT" -> Color(0xFFFFECEB)
-                        "ORDER_TAKEN" -> Color(0xFFE8F8EE)
+                        "DISCOUNT", "SPECIAL_OFFER" -> Color(0xFFFFECEB)
+                        "ORDER_TAKEN", "ORDER_DELIVERED" -> Color(0xFFE8F8EE)
                         "ORDER_CANCELED" -> Color(0xFFFFECEB)
                         "ACCOUNT" -> Color(0xFFEFF6FF)
-                        "SPECIAL_OFFER" -> Color(0xFFFFF7ED)
                         else -> Color(0xFFF3E8FF)
                     },
                     CircleShape
@@ -109,10 +116,12 @@ fun NotificationItemCard(item: AppNotificationItem) {
                 text = when (item.type) {
                     "DISCOUNT" -> "🏷️"
                     "ORDER_TAKEN" -> "✅"
+                    "ORDER_DELIVERED" -> "📦"
                     "ORDER_CANCELED" -> "❌"
                     "ACCOUNT" -> "👤"
                     "SPECIAL_OFFER" -> "🎁"
-                    else -> "💳"
+                    "CARD" -> "💳"
+                    else -> "🔔"
                 },
                 fontSize = 20.sp
             )

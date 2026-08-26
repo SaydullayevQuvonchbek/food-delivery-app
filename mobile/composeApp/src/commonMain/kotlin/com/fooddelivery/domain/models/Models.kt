@@ -99,14 +99,26 @@ data class VerifyOtpRequest(
 @Serializable
 data class ResetPasswordRequest(
     val email: String,
+    @SerialName("reset_token") val resetToken: String,
     val password: String,
     @SerialName("password_confirmation") val passwordConfirmation: String
+)
+
+@Serializable
+data class CreateAddressRequest(
+    val label: String = "Home",
+    @SerialName("address_line") val addressLine: String,
+    @SerialName("house_number") val houseNumber: String = "",
+    val city: String = "Tashkent",
+    @SerialName("is_default") val isDefault: Boolean = true
 )
 
 @Serializable
 data class CreateOrderRequest(
     @SerialName("address_id") val addressId: Long? = null,
     @SerialName("payment_method") val paymentMethod: String = "card",
+    @SerialName("promo_code") val promoCode: String? = null,
+    val notes: String? = null,
     val items: List<CreateOrderItemRequest>
 )
 
@@ -252,13 +264,11 @@ data class SavedPaymentCard(
     val id: Long = 0,
     @SerialName("card_holder_name")
     val cardHolderName: String = "",
-    @SerialName("card_number")
-    val cardNumber: String = "",
+    // Diqqat: karta raqami (PAN) va CVV hech qachon saqlanmaydi - faqat oxirgi 4 raqam
     @SerialName("last_four")
     val lastFour: String = "",
     @SerialName("expiry_date")
     val expiryDate: String = "",
-    val cvv: String = "",
     @SerialName("card_type")
     val cardType: String = "MasterCard",
     @SerialName("is_default")

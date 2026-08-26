@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import com.fooddelivery.data.repository.FoodDeliveryRepository
 import com.fooddelivery.domain.models.Category
 import com.fooddelivery.domain.models.Food
+import com.fooddelivery.util.formatPrice
 import com.fooddelivery.theme.*
 
 @Composable
@@ -43,6 +44,9 @@ fun HomeScreen(
 ) {
     val categories by repository.categories.collectAsState()
     val foods by repository.foods.collectAsState()
+    val isLoading by repository.isCatalogLoading.collectAsState()
+    val catalogError by repository.catalogError.collectAsState()
+    val unreadCount by repository.unreadNotifications.collectAsState()
 
     Column(
         modifier = Modifier
@@ -116,14 +120,16 @@ fun HomeScreen(
                         tint = TextPrimary,
                         modifier = Modifier.size(20.dp)
                     )
-                    // Notification red dot badge
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(8.dp)
-                            .size(8.dp)
-                            .background(DangerRed, CircleShape)
-                    )
+                    // Qizil nuqta faqat o'qilmagan bildirishnoma bo'lganda ko'rinadi
+                    if (unreadCount > 0) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(8.dp)
+                                .size(8.dp)
+                                .background(DangerRed, CircleShape)
+                        )
+                    }
                 }
             }
         }
@@ -202,22 +208,82 @@ fun HomeScreen(
             }
         }
 
+        if (catalogError != null) {
+            Spacer(Modifier.height(10.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(DangerRed.copy(alpha = 0.08f))
+                    .clickable { repository.refreshCatalog() }
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = catalogError ?: "",
+                    style = MaterialTheme.typography.bodySmall.copy(color = DangerRed),
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = "Qayta urinish",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = PrimaryOrange,
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+            }
+        }
+
         Spacer(Modifier.height(16.dp))
 
         // 2-Column Food Grid
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 90.dp)
-        ) {
-            items(foods) { food ->
-                FoodCard(
-                    food = food,
-                    onItemClick = { onNavigateToFoodDetail(food.id) },
-                    onFavoriteClick = { repository.toggleFavorite(food.id) }
-                )
+        when {
+            isLoading && foods.isEmpty() -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+                    CircularProgressIndicator(color = PrimaryOrange, modifier = Modifier.padding(top = 40.dp))
+                }
+            }
+
+            foods.isEmpty() -> {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(top = 40.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(text = "🍽", fontSize = 44.sp)
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        text = "Bu kategoriyada hozircha taom yo'q",
+                        style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        text = "Barchasini ko'rish",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = PrimaryOrange,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        modifier = Modifier.clickable { repository.selectCategory(0L) }
+                    )
+                }
+            }
+
+            else -> {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 90.dp)
+                ) {
+                    items(foods, key = { it.id }) { food ->
+                        FoodCard(
+                            food = food,
+                            onItemClick = { onNavigateToFoodDetail(food.id) },
+                            onFavoriteClick = { repository.toggleFavorite(food.id) }
+                        )
+                    }
+                }
             }
         }
     }
@@ -344,7 +410,7 @@ fun FoodCard(
             Spacer(Modifier.height(8.dp))
 
             Text(
-                text = "$ ${food.price.toInt()}",
+                text = formatPrice(food.price),
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold,
                     color = PrimaryOrange

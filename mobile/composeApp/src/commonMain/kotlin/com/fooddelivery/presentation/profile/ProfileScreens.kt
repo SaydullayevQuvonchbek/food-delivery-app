@@ -28,6 +28,8 @@ import androidx.compose.ui.unit.sp
 import com.fooddelivery.components.*
 import com.fooddelivery.data.repository.FoodDeliveryRepository
 import com.fooddelivery.theme.*
+import com.fooddelivery.util.formatPrice
+import kotlinx.coroutines.launch
 
 @Composable
 fun ProfileScreen(
@@ -47,6 +49,7 @@ fun ProfileScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .background(BackgroundWhite)
+                .statusBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 20.dp)
         ) {
@@ -112,7 +115,7 @@ fun ProfileScreen(
             Spacer(Modifier.height(24.dp))
 
             // My Orders Widget
-            val lastOrder by repository.lastCreatedOrder.collectAsState()
+            val lastOrder by repository.activeOrder.collectAsState()
             Surface(
                 shape = RoundedCornerShape(18.dp),
                 color = SurfaceLight,
@@ -184,12 +187,12 @@ fun ProfileScreen(
                                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
                                 )
                                 Text(
-                                    text = "$ ${order.total.toInt()}",
+                                    text = formatPrice(order.total),
                                     style = MaterialTheme.typography.bodySmall.copy(color = PrimaryOrange, fontWeight = FontWeight.Bold)
                                 )
                             }
                             Text(
-                                text = "${order.items.sumOf { it.quantity }} Items",
+                                text = "${order.items.sumOf { it.quantity }} ta",
                                 style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
                             )
                         }
@@ -341,16 +344,22 @@ fun PersonalDataScreen(
     onBackClick: () -> Unit
 ) {
     val user by repository.currentUser.collectAsState()
-    var fullName by remember { mutableStateOf(user.fullName) }
-    var dob by remember { mutableStateOf(user.dateOfBirth ?: "") }
-    var gender by remember { mutableStateOf(user.gender) }
-    var phone by remember { mutableStateOf(user.phone ?: "") }
-    var email by remember { mutableStateOf(user.email) }
+    // Profil serverdan kechroq kelsa ham maydonlar yangilanadi
+    var fullName by remember(user.id) { mutableStateOf(user.fullName) }
+    var dob by remember(user.id) { mutableStateOf(user.dateOfBirth ?: "") }
+    var gender by remember(user.id) { mutableStateOf(user.gender) }
+    var phone by remember(user.id) { mutableStateOf(user.phone ?: "") }
+    var isSaving by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var savedMessage by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(BackgroundWhite)
+            .statusBarsPadding()
+            .imePadding()
     ) {
         AppHeaderBar(
             title = "Personal Data",
@@ -398,12 +407,38 @@ fun PersonalDataScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            AppInputField(
-                value = gender,
-                onValueChange = { gender = it },
-                label = "Gender",
-                trailingIcon = Icons.Filled.KeyboardArrowDown
+            // Server faqat Male/Female/Other qabul qiladi - erkin matn 422 xatoga olib kelardi
+            Text(
+                text = "Gender",
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = TextPrimary),
+                modifier = Modifier.padding(bottom = 6.dp)
             )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                listOf("Male", "Female", "Other").forEach { option ->
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(ButtonShape)
+                            .background(if (gender == option) PrimaryOrangeSoft else SurfaceLight)
+                            .border(
+                                1.dp,
+                                if (gender == option) PrimaryOrange else BorderLight,
+                                ButtonShape
+                            )
+                            .clickable { gender = option }
+                            .padding(vertical = 14.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = option,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = if (gender == option) PrimaryOrange else TextPrimary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        )
+                    }
+                }
+            }
 
             Spacer(Modifier.height(16.dp))
 
@@ -415,19 +450,57 @@ fun PersonalDataScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            AppInputField(
-                value = email,
-                onValueChange = { email = it },
-                label = "Email"
-            )
+            // Email almashtirish alohida tasdiqlashni talab qiladi - hozircha faqat ko'rsatiladi
+            Column {
+                Text(
+                    text = "Email",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = TextPrimary),
+                    modifier = Modifier.padding(bottom = 6.dp)
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp)
+                        .background(SurfaceLight, ButtonShape)
+                        .padding(horizontal = 16.dp),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    Text(
+                        text = user.email.ifEmpty { "-" },
+                        style = MaterialTheme.typography.bodyLarge.copy(color = TextSecondary)
+                    )
+                }
+            }
+
+            errorMessage?.let {
+                Spacer(Modifier.height(12.dp))
+                Text(text = it, style = MaterialTheme.typography.bodySmall.copy(color = DangerRed))
+            }
+            savedMessage?.let {
+                Spacer(Modifier.height(12.dp))
+                Text(text = it, style = MaterialTheme.typography.bodySmall.copy(color = SuccessGreen))
+            }
 
             Spacer(Modifier.height(30.dp))
 
             AppPrimaryButton(
                 text = "Save",
+                isLoading = isSaving,
+                enabled = fullName.trim().length >= 3,
                 onClick = {
-                    repository.updateUserProfile(fullName, phone, email, dob, gender)
-                    onBackClick()
+                    scope.launch {
+                        isSaving = true
+                        errorMessage = null
+                        savedMessage = null
+                        // Natija endi tekshiriladi (ilgari server xatosi jimgina yo'qolardi)
+                        repository.updateUserProfile(fullName, phone, dob, gender)
+                            .onSuccess {
+                                savedMessage = "Saqlandi"
+                                onBackClick()
+                            }
+                            .onFailure { errorMessage = it.message }
+                        isSaving = false
+                    }
                 }
             )
 
@@ -450,6 +523,7 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .background(BackgroundWhite)
+                .statusBarsPadding()
         ) {
             AppHeaderBar(
                 title = "Settings",
@@ -534,7 +608,7 @@ fun SettingsScreen(
 
                 Spacer(Modifier.height(12.dp))
 
-                ProfileMenuItem(icon = Icons.Outlined.Info, title = "About Ticketis", onClick = {})
+                ProfileMenuItem(icon = Icons.Outlined.Info, title = "Ilova haqida", onClick = {})
                 ProfileMenuItem(icon = Icons.Outlined.Lock, title = "Privacy Policy", onClick = {})
                 ProfileMenuItem(icon = Icons.Outlined.Description, title = "Terms and Conditions", onClick = {})
             }
@@ -637,6 +711,7 @@ fun HelpCenterScreen(onBackClick: () -> Unit) {
         modifier = Modifier
             .fillMaxSize()
             .background(BackgroundWhite)
+            .statusBarsPadding()
     ) {
         AppHeaderBar(
             title = "Help Center",

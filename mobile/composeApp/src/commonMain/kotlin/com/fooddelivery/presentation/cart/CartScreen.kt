@@ -8,16 +8,17 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -25,7 +26,14 @@ import androidx.compose.ui.unit.sp
 import com.fooddelivery.components.*
 import com.fooddelivery.data.repository.FoodDeliveryRepository
 import com.fooddelivery.domain.models.CartItem
+import com.fooddelivery.presentation.food_detail.categoryEmoji
 import com.fooddelivery.theme.*
+import com.fooddelivery.util.formatPrice
+import kotlinx.coroutines.launch
+
+/** Savat va to'lov ekranlari uchun yagona hisob-kitob (server formulasi bilan bir xil) */
+const val TAX_RATE = 0.10
+const val DELIVERY_FEE = 0.0
 
 @Composable
 fun CartScreen(
@@ -34,24 +42,31 @@ fun CartScreen(
     onNavigateToCheckout: () -> Unit
 ) {
     val cartItems by repository.cartItems.collectAsState()
+    val appliedPromo by repository.appliedPromo.collectAsState()
     var promoCode by remember { mutableStateOf("") }
-    var promoApplied by remember { mutableStateOf(false) }
+    var promoError by remember { mutableStateOf<String?>(null) }
+    var isApplyingPromo by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
-    val subtotal = remember(cartItems) { cartItems.sumOf { it.totalPrice } }
-    val deliveryFee = if (subtotal > 0) 0.0 else 0.0
-    val discount = if (promoApplied) 10900.0 else 0.0
-    val total = (subtotal + deliveryFee - discount).coerceAtLeast(0.0)
+    val selectedItems = cartItems.filter { it.isSelected }
+    val subtotal = selectedItems.sumOf { it.totalPrice }
+    val discount = appliedPromo?.discountAmount ?: 0.0
+    val tax = subtotal * TAX_RATE
+    val total = (subtotal + DELIVERY_FEE + tax - discount).coerceAtLeast(0.0)
+
+    // Savat o'zgarsa, tasdiqlangan promo kod endi to'g'ri kelmasligi mumkin
+    LaunchedEffect(subtotal) {
+        if (appliedPromo != null && subtotal == 0.0) repository.clearPromoCode()
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(BackgroundWhite)
+            .statusBarsPadding()
+            .imePadding()
     ) {
-        AppHeaderBar(
-            title = "My Cart",
-            actionIcon = Icons.Filled.MoreVert,
-            onActionClick = { /* More actions */ }
-        )
+        AppHeaderBar(title = "My Cart")
 
         if (cartItems.isEmpty()) {
             EmptyCartView(onFindFoods = onNavigateToHome)
@@ -63,47 +78,65 @@ fun CartScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 contentPadding = PaddingValues(bottom = 100.dp)
             ) {
-                // Delivery Location Bar
                 item {
-                    DeliveryLocationCard()
+                    DeliveryLocationCard(repository)
                 }
 
-                // Promo Code Section
                 item {
                     PromoCodeCard(
                         promoCode = promoCode,
-                        onPromoCodeChange = { promoCode = it },
-                        isApplied = promoApplied,
-                        onApply = { promoApplied = true }
+                        onPromoCodeChange = {
+                            promoCode = it
+                            promoError = null
+                        },
+                        appliedCode = appliedPromo?.code,
+                        isLoading = isApplyingPromo,
+                        errorMessage = promoError,
+                        onApply = {
+                            scope.launch {
+                                if (appliedPromo != null) {
+                                    repository.clearPromoCode()
+                                    promoCode = ""
+                                    return@launch
+                                }
+                                isApplyingPromo = true
+                                promoError = null
+                                // Chegirma endi server tomonidan tasdiqlanadi (ilgari har qanday
+                                // matn kiritilsa ham 10 900 chegirma "berilardi")
+                                repository.applyPromoCode(promoCode, subtotal)
+                                    .onFailure { promoError = it.message }
+                                isApplyingPromo = false
+                            }
+                        }
                     )
                 }
 
-                // Cart Items List
-                items(cartItems) { item ->
+                items(cartItems, key = { it.food.id }) { item ->
                     CartItemRow(
                         item = item,
+                        onToggleSelected = { repository.setCartItemSelected(item.food.id, !item.isSelected) },
                         onIncrease = { repository.updateCartItemQuantity(item.food.id, 1) },
                         onDecrease = { repository.updateCartItemQuantity(item.food.id, -1) },
                         onRemove = { repository.removeCartItem(item.food.id) }
                     )
                 }
 
-                // Payment Summary Section
                 item {
                     PaymentSummaryCard(
-                        itemCount = cartItems.sumOf { it.quantity },
+                        itemCount = selectedItems.sumOf { it.quantity },
                         subtotal = subtotal,
-                        deliveryFee = deliveryFee,
+                        deliveryFee = DELIVERY_FEE,
+                        tax = tax,
                         discount = discount,
                         total = total
                     )
                 }
 
-                // Order Now Button
                 item {
                     Spacer(Modifier.height(10.dp))
                     AppPrimaryButton(
-                        text = "Order Now",
+                        text = if (selectedItems.isEmpty()) "Taom tanlang" else "Order Now",
+                        enabled = selectedItems.isNotEmpty(),
                         onClick = onNavigateToCheckout
                     )
                     Spacer(Modifier.height(20.dp))
@@ -114,7 +147,10 @@ fun CartScreen(
 }
 
 @Composable
-fun DeliveryLocationCard() {
+fun DeliveryLocationCard(repository: FoodDeliveryRepository) {
+    val addresses by repository.addresses.collectAsState()
+    val defaultAddress = addresses.firstOrNull { it.isDefault } ?: addresses.firstOrNull()
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -124,31 +160,16 @@ fun DeliveryLocationCard() {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = "Delivery Location",
                 style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
             )
             Spacer(Modifier.height(2.dp))
             Text(
-                text = "Home (New York City)",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-            )
-        }
-
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(12.dp))
-                .background(PrimaryOrangeSoft)
-                .clickable { /* Change Location */ }
-                .padding(horizontal = 12.dp, vertical = 6.dp)
-        ) {
-            Text(
-                text = "Change Location",
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = PrimaryOrange,
-                    fontWeight = FontWeight.Bold
-                )
+                text = defaultAddress?.let { "${it.label} (${it.addressLine})" } ?: "Manzil kiritilmagan",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                maxLines = 1
             )
         }
     }
@@ -158,48 +179,76 @@ fun DeliveryLocationCard() {
 fun PromoCodeCard(
     promoCode: String,
     onPromoCodeChange: (String) -> Unit,
-    isApplied: Boolean,
+    appliedCode: String?,
+    isLoading: Boolean,
+    errorMessage: String?,
     onApply: () -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(54.dp)
-            .background(InputBackground, RoundedCornerShape(16.dp))
-            .border(1.dp, BorderLight, RoundedCornerShape(16.dp))
-            .padding(horizontal = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(text = "🎟 ", fontSize = 18.sp)
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(54.dp)
+                .background(InputBackground, RoundedCornerShape(16.dp))
+                .border(
+                    1.dp,
+                    if (errorMessage != null) DangerRed else BorderLight,
+                    RoundedCornerShape(16.dp)
+                )
+                .padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(text = "🎟 ", fontSize = 18.sp)
 
-        Box(modifier = Modifier.weight(1f)) {
-            if (promoCode.isEmpty()) {
-                Text(
-                    text = "Promo Code...",
-                    style = MaterialTheme.typography.bodyMedium.copy(color = TextMuted)
+            Box(modifier = Modifier.weight(1f)) {
+                if (promoCode.isEmpty() && appliedCode == null) {
+                    Text(
+                        text = "Promo Code...",
+                        style = MaterialTheme.typography.bodyMedium.copy(color = TextMuted)
+                    )
+                }
+                androidx.compose.foundation.text.BasicTextField(
+                    value = appliedCode ?: promoCode,
+                    onValueChange = { if (appliedCode == null) onPromoCodeChange(it.uppercase()) },
+                    enabled = appliedCode == null,
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    modifier = Modifier.fillMaxWidth(),
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = TextPrimary)
                 )
             }
-            androidx.compose.foundation.text.BasicTextField(
-                value = promoCode,
-                onValueChange = onPromoCodeChange,
-                modifier = Modifier.fillMaxWidth(),
-                textStyle = MaterialTheme.typography.bodyLarge.copy(color = TextPrimary)
-            )
+
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(if (appliedCode != null) SuccessGreen else PrimaryOrange)
+                    .clickable(enabled = !isLoading) { onApply() }
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        color = TextWhite,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text(
+                        text = if (appliedCode != null) "Bekor qilish" else "Apply",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = TextWhite,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                }
+            }
         }
 
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(10.dp))
-                .background(if (isApplied) SuccessGreen else PrimaryOrange)
-                .clickable { onApply() }
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-        ) {
+        errorMessage?.let {
+            Spacer(Modifier.height(6.dp))
             Text(
-                text = if (isApplied) "Applied ✓" else "Apply",
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = TextWhite,
-                    fontWeight = FontWeight.Bold
-                )
+                text = it,
+                style = MaterialTheme.typography.bodySmall.copy(color = DangerRed),
+                modifier = Modifier.padding(start = 6.dp)
             )
         }
     }
@@ -208,12 +257,11 @@ fun PromoCodeCard(
 @Composable
 fun CartItemRow(
     item: CartItem,
+    onToggleSelected: () -> Unit,
     onIncrease: () -> Unit,
     onDecrease: () -> Unit,
     onRemove: () -> Unit
 ) {
-    var isChecked by remember { mutableStateOf(item.isSelected) }
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -222,23 +270,22 @@ fun CartItemRow(
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Checkbox
+        // Belgilash holati endi savat holatida saqlanadi va yakuniy summaga ta'sir qiladi
         Box(
             modifier = Modifier
                 .size(22.dp)
-                .background(if (isChecked) PrimaryOrange else Color.Transparent, RoundedCornerShape(6.dp))
-                .border(1.5.dp, if (isChecked) PrimaryOrange else BorderLight, RoundedCornerShape(6.dp))
-                .clickable { isChecked = !isChecked },
+                .background(if (item.isSelected) PrimaryOrange else Color.Transparent, RoundedCornerShape(6.dp))
+                .border(1.5.dp, if (item.isSelected) PrimaryOrange else BorderLight, RoundedCornerShape(6.dp))
+                .clickable { onToggleSelected() },
             contentAlignment = Alignment.Center
         ) {
-            if (isChecked) {
+            if (item.isSelected) {
                 Icon(Icons.Filled.Check, contentDescription = null, tint = TextWhite, modifier = Modifier.size(16.dp))
             }
         }
 
         Spacer(Modifier.width(12.dp))
 
-        // Food Thumbnail
         Box(
             modifier = Modifier
                 .size(64.dp)
@@ -246,7 +293,7 @@ fun CartItemRow(
                 .background(Color(0xFFE9E0D4)),
             contentAlignment = Alignment.Center
         ) {
-            Text(text = "🍔", fontSize = 32.sp)
+            Text(text = categoryEmoji(item.food.categoryId), fontSize = 32.sp)
         }
 
         Spacer(Modifier.width(12.dp))
@@ -259,7 +306,7 @@ fun CartItemRow(
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "$ ${item.food.price.toInt()}",
+                text = formatPrice(item.totalPrice),
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = PrimaryOrange,
                     fontWeight = FontWeight.Bold
@@ -294,6 +341,7 @@ fun PaymentSummaryCard(
     itemCount: Int,
     subtotal: Double,
     deliveryFee: Double,
+    tax: Double,
     discount: Double,
     total: Double
 ) {
@@ -311,14 +359,16 @@ fun PaymentSummaryCard(
 
         Spacer(Modifier.height(14.dp))
 
-        SummaryRow(label = "Total Items ($itemCount)", value = "$ ${subtotal.toInt()}")
+        SummaryRow(label = "Total Items ($itemCount)", value = formatPrice(subtotal))
         Spacer(Modifier.height(8.dp))
-        SummaryRow(label = "Delivery Fee", value = if (deliveryFee == 0.0) "Free" else "$ ${deliveryFee.toInt()}")
+        SummaryRow(label = "Delivery Fee", value = if (deliveryFee == 0.0) "Bepul" else formatPrice(deliveryFee))
+        Spacer(Modifier.height(8.dp))
+        SummaryRow(label = "Soliq (10%)", value = formatPrice(tax))
         Spacer(Modifier.height(8.dp))
         SummaryRow(
             label = "Discount",
-            value = if (discount > 0) "-$ ${discount.toInt()}" else "$ 0",
-            valueColor = if (discount > 0) DangerRed else TextPrimary
+            value = if (discount > 0) "-${formatPrice(discount)}" else formatPrice(0.0),
+            valueColor = if (discount > 0) SuccessGreen else TextPrimary
         )
 
         Spacer(Modifier.height(12.dp))
@@ -327,7 +377,7 @@ fun PaymentSummaryCard(
 
         SummaryRow(
             label = "Total",
-            value = "$ ${total.toInt()}",
+            value = formatPrice(total),
             isTotal = true
         )
     }
@@ -352,7 +402,7 @@ fun SummaryRow(
         )
         Text(
             text = value,
-            style = if (isTotal) MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, color = PrimaryOrange)
+            style = if (isTotal) MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = PrimaryOrange)
             else MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold, color = valueColor)
         )
     }
@@ -379,14 +429,14 @@ fun EmptyCartView(onFindFoods: () -> Unit) {
         Spacer(Modifier.height(28.dp))
 
         Text(
-            text = "Ouch! Hungry",
+            text = "Savat bo'sh",
             style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold)
         )
 
         Spacer(Modifier.height(8.dp))
 
         Text(
-            text = "Seems like you have not ordered\nany food yet",
+            text = "Hali hech qanday taom tanlamadingiz",
             style = MaterialTheme.typography.bodyMedium.copy(
                 color = TextSecondary,
                 textAlign = TextAlign.Center
@@ -396,7 +446,7 @@ fun EmptyCartView(onFindFoods: () -> Unit) {
         Spacer(Modifier.height(32.dp))
 
         AppPrimaryButton(
-            text = "Find Foods",
+            text = "Taomlarni ko'rish",
             onClick = onFindFoods
         )
     }

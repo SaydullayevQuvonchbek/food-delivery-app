@@ -26,16 +26,20 @@ import androidx.compose.ui.unit.sp
 import com.fooddelivery.components.AppHeaderBar
 import com.fooddelivery.data.repository.FoodDeliveryRepository
 import com.fooddelivery.theme.*
+import com.fooddelivery.util.formatPrice
 
 @Composable
 fun DeliveryTrackingScreen(
     repository: FoodDeliveryRepository,
     onBackClick: () -> Unit,
-    onNavigateToChat: (Long) -> Unit,
-    onNavigateToCall: (Long) -> Unit
+    onNavigateToChat: () -> Unit,
+    onNavigateToCall: (String) -> Unit
 ) {
-    val courier = repository.currentCourier
-    val lastOrder by repository.lastCreatedOrder.collectAsState()
+    val lastOrder by repository.activeOrder.collectAsState()
+    val courier = lastOrder?.courier
+
+    // Kuzatuv ma'lumotlari serverdagi buyurtmadan olinadi
+    LaunchedEffect(Unit) { repository.loadOrders() }
 
     Box(
         modifier = Modifier
@@ -209,7 +213,7 @@ fun DeliveryTrackingScreen(
 
                             Column {
                                 Text(
-                                    text = courier.name,
+                                    text = courier?.name ?: "Kuryer biriktirilmoqda",
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         color = TextWhite,
                                         fontWeight = FontWeight.Bold
@@ -217,7 +221,7 @@ fun DeliveryTrackingScreen(
                                 )
                                 Spacer(Modifier.height(2.dp))
                                 Text(
-                                    text = courier.badgeId,
+                                    text = courier?.badgeId ?: "-",
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         color = TextWhite.copy(alpha = 0.6f)
                                     )
@@ -231,7 +235,7 @@ fun DeliveryTrackingScreen(
                                 modifier = Modifier
                                     .size(40.dp)
                                     .background(PrimaryOrange, CircleShape)
-                                    .clickable { onNavigateToChat(courier.id) },
+                                    .clickable { onNavigateToChat() },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
@@ -247,7 +251,7 @@ fun DeliveryTrackingScreen(
                                 modifier = Modifier
                                     .size(40.dp)
                                     .background(PrimaryOrange, CircleShape)
-                                    .clickable { onNavigateToCall(courier.id) },
+                                    .clickable { onNavigateToCall(courier?.name ?: "Kuryer") },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
@@ -270,7 +274,7 @@ fun DeliveryTrackingScreen(
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = "Estimated 8:30 - 9:15 PM",
+                    text = lastOrder?.let { "Taxminan 30 daqiqa" } ?: "-",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                 )
 
@@ -294,13 +298,13 @@ fun DeliveryTrackingScreen(
                         )
                         Spacer(Modifier.height(2.dp))
                         Text(
-                            text = lastOrder?.items?.firstOrNull()?.let { "${it.quantity} ${it.food.name}" } ?: "2 Burger With Meat",
+                            text = lastOrder?.items?.firstOrNull()?.let { "${it.quantity} x ${it.food.name}" } ?: "Faol buyurtma yo'q",
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
                         )
                     }
 
                     Text(
-                        text = "$ ${lastOrder?.total?.toInt() ?: 283}",
+                        text = lastOrder?.let { formatPrice(it.total) } ?: "-",
                         style = MaterialTheme.typography.titleMedium.copy(
                             color = PrimaryOrange,
                             fontWeight = FontWeight.Bold

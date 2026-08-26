@@ -1,34 +1,28 @@
 package com.fooddelivery.data.repository
 
 import com.fooddelivery.data.network.ApiConfig
+import com.fooddelivery.data.network.AppJson
 import com.fooddelivery.data.network.createHttpClient
+import com.fooddelivery.data.storage.getLocalStorage
 import com.fooddelivery.domain.models.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import com.fooddelivery.data.storage.getLocalStorage
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 
 class FoodDeliveryRepository {
 
     private val httpClient = createHttpClient()
-    private val scope = CoroutineScope(Dispatchers.Default)
-    private val jsonParser = Json {
-        ignoreUnknownKeys = true
-        isLenient = true
-        coerceInputValues = true
-        explicitNulls = false
-    }
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val jsonParser = AppJson
 
     private val storage by lazy {
         try {
@@ -37,6 +31,8 @@ class FoodDeliveryRepository {
             null
         }
     }
+
+    // ---------------- Offline uchun zaxira katalog ----------------
 
     private val defaultCategories = listOf(
         Category(1, "Burger", "🍔", isSelected = true),
@@ -58,8 +54,7 @@ class FoodDeliveryRepository {
             distance = "190m",
             deliveryTime = "20 - 30 min",
             isFreeDelivery = true,
-            imageUrl = "burger1.png",
-            isFavorite = true
+            imageUrl = "burger1.png"
         ),
         Food(
             id = 2,
@@ -72,8 +67,7 @@ class FoodDeliveryRepository {
             distance = "190m",
             deliveryTime = "15 - 25 min",
             isFreeDelivery = true,
-            imageUrl = "burger2.png",
-            isFavorite = false
+            imageUrl = "burger2.png"
         ),
         Food(
             id = 3,
@@ -86,8 +80,7 @@ class FoodDeliveryRepository {
             distance = "250m",
             deliveryTime = "20 - 35 min",
             isFreeDelivery = false,
-            imageUrl = "burger3.png",
-            isFavorite = true
+            imageUrl = "burger3.png"
         ),
         Food(
             id = 4,
@@ -100,8 +93,7 @@ class FoodDeliveryRepository {
             distance = "300m",
             deliveryTime = "15 - 20 min",
             isFreeDelivery = true,
-            imageUrl = "taco1.png",
-            isFavorite = false
+            imageUrl = "taco1.png"
         ),
         Food(
             id = 5,
@@ -114,8 +106,7 @@ class FoodDeliveryRepository {
             distance = "190m",
             deliveryTime = "10 - 15 min",
             isFreeDelivery = true,
-            imageUrl = "drink1.png",
-            isFavorite = false
+            imageUrl = "drink1.png"
         ),
         Food(
             id = 6,
@@ -128,13 +119,16 @@ class FoodDeliveryRepository {
             distance = "400m",
             deliveryTime = "25 - 40 min",
             isFreeDelivery = true,
-            imageUrl = "pizza1.png",
-            isFavorite = true
+            imageUrl = "pizza1.png"
         )
     )
 
-    private var allFoodsCache = defaultFoods
-    private var currentSelectedCategoryId: Long = 1L
+    // ---------------- Holat (State) ----------------
+
+    private val _allFoods = MutableStateFlow(defaultFoods)
+    val allFoods: StateFlow<List<Food>> = _allFoods.asStateFlow()
+
+    private var currentSelectedCategoryId: Long = 0L
 
     private val _isLoggedIn = MutableStateFlow(false)
     val isLoggedIn: StateFlow<Boolean> = _isLoggedIn.asStateFlow()
@@ -142,368 +136,397 @@ class FoodDeliveryRepository {
     private val _hasSeenOnboarding = MutableStateFlow(false)
     val hasSeenOnboarding: StateFlow<Boolean> = _hasSeenOnboarding.asStateFlow()
 
-    private val _currentUser = MutableStateFlow(
-        User(
-            id = 1,
-            fullName = "Albert Stevano Bajefski",
-            email = "Albertstevano@gmail.com",
-            phone = "+1 325-433-7656",
-            dateOfBirth = "19/06/1999",
-            gender = "Male",
-            avatarUrl = ""
-        )
-    )
+    private val _currentUser = MutableStateFlow(User())
     val currentUser: StateFlow<User> = _currentUser.asStateFlow()
 
     private val _categories = MutableStateFlow(defaultCategories)
     val categories: StateFlow<List<Category>> = _categories.asStateFlow()
 
-    private val _foods = MutableStateFlow(defaultFoods.filter { it.categoryId == 1L })
+    private val _foods = MutableStateFlow(defaultFoods)
     val foods: StateFlow<List<Food>> = _foods.asStateFlow()
 
-    // Real Cart starts empty
+    private val _isCatalogLoading = MutableStateFlow(false)
+    val isCatalogLoading: StateFlow<Boolean> = _isCatalogLoading.asStateFlow()
+
+    private val _catalogError = MutableStateFlow<String?>(null)
+    val catalogError: StateFlow<String?> = _catalogError.asStateFlow()
+
     private val _cartItems = MutableStateFlow<List<CartItem>>(emptyList())
     val cartItems: StateFlow<List<CartItem>> = _cartItems.asStateFlow()
 
-    private val _savedCards = MutableStateFlow(
-        listOf(
-            SavedPaymentCard(
-                id = 1,
-                cardHolderName = "Albert Stevano Bajefski",
-                cardNumber = "3822 8293 8292 2356",
-                lastFour = "8374",
-                expiryDate = "11/24",
-                cvv = "531",
-                cardType = "MasterCard",
-                isDefault = true
-            ),
-            SavedPaymentCard(
-                id = 2,
-                cardHolderName = "Albert Stevano",
-                cardNumber = "**** **** 0783 7873",
-                lastFour = "7873",
-                cardType = "MasterCard",
-                isDefault = false
-            ),
-            SavedPaymentCard(
-                id = 3,
-                cardHolderName = "Albert Stevano",
-                cardNumber = "**** **** 0582 4672",
-                lastFour = "4672",
-                cardType = "Paypal",
-                isDefault = false
-            )
-        )
-    )
+    private val _savedCards = MutableStateFlow<List<SavedPaymentCard>>(emptyList())
     val savedCards: StateFlow<List<SavedPaymentCard>> = _savedCards.asStateFlow()
 
-    private val _notifications = MutableStateFlow(
-        listOf(
-            AppNotificationItem(1, "30% Special Discount!", "Special promotion only valid today", "Today", "DISCOUNT"),
-            AppNotificationItem(2, "Your Order Has Been Taken by the Driver", "Recently", "Today", "ORDER_TAKEN"),
-            AppNotificationItem(3, "Your Order Has Been Canceled", "19 Jun 2023", "Today", "ORDER_CANCELED"),
-            AppNotificationItem(4, "35% Special Discount!", "Special promotion only valid today", "Yesterday", "DISCOUNT"),
-            AppNotificationItem(5, "Account Setup Successfull!", "Special promotion only valid today", "Yesterday", "ACCOUNT"),
-            AppNotificationItem(6, "Special Offer! 60% Off", "Special offer for new account, valid until 20 Nov 2022", "Yesterday", "SPECIAL_OFFER"),
-            AppNotificationItem(7, "Credit Card Connected", "Special promotion only valid today", "Yesterday", "CARD")
-        )
-    )
+    private val _addresses = MutableStateFlow<List<Address>>(emptyList())
+    val addresses: StateFlow<List<Address>> = _addresses.asStateFlow()
+
+    private val _notifications = MutableStateFlow<List<AppNotificationItem>>(emptyList())
     val notifications: StateFlow<List<AppNotificationItem>> = _notifications.asStateFlow()
 
-    private val _recentSearches = MutableStateFlow(
-        listOf("Burgers", "Fast food", "Dessert", "French", "Pastry")
-    )
+    private val _unreadNotifications = MutableStateFlow(0)
+    val unreadNotifications: StateFlow<Int> = _unreadNotifications.asStateFlow()
+
+    private val _recentSearches = MutableStateFlow<List<String>>(emptyList())
     val recentSearches: StateFlow<List<String>> = _recentSearches.asStateFlow()
 
-    val currentCourier = Courier(
-        id = 101,
-        name = "Cristopert Dastin",
-        badgeId = "ID 213752",
-        phone = "+1 234 567 8900",
-        avatarUrl = "",
-        rating = 4.9
-    )
+    private val _conversations = MutableStateFlow<List<ChatConversation>>(emptyList())
+    val conversations: StateFlow<List<ChatConversation>> = _conversations.asStateFlow()
 
-    private val _chatMessages = MutableStateFlow(
-        listOf(
-            ChatMessage(1, 101, "Just to order", "09.00", isFromMe = false),
-            ChatMessage(2, 1, "Okay, for what level of spiciness?", "09.15", isFromMe = true),
-            ChatMessage(3, 101, "Okay, Wait a minute 🙏", "09.00", isFromMe = false),
-            ChatMessage(4, 1, "Okay, I'm waiting 🙌", "09.15", isFromMe = true)
-        )
-    )
+    private val _chatMessages = MutableStateFlow<List<ChatMessage>>(emptyList())
     val chatMessages: StateFlow<List<ChatMessage>> = _chatMessages.asStateFlow()
 
-    private val _lastCreatedOrder = MutableStateFlow<Order?>(null)
-    val lastCreatedOrder: StateFlow<Order?> = _lastCreatedOrder.asStateFlow()
+    private val _activeChatId = MutableStateFlow<Long?>(null)
+    val activeChatId: StateFlow<Long?> = _activeChatId.asStateFlow()
+
+    private val _orders = MutableStateFlow<List<Order>>(emptyList())
+    val orders: StateFlow<List<Order>> = _orders.asStateFlow()
+
+    private val _activeOrder = MutableStateFlow<Order?>(null)
+    val activeOrder: StateFlow<Order?> = _activeOrder.asStateFlow()
+
+    /** Parolni tiklash oqimi uchun (email + bir martalik token) */
+    private var pendingResetEmail: String = ""
+    private var pendingResetToken: String = ""
+    val resetEmail: String get() = pendingResetEmail
+
+    /** Savatga qo'llanilgan promo kod */
+    private val _appliedPromo = MutableStateFlow<PromoValidationData?>(null)
+    val appliedPromo: StateFlow<PromoValidationData?> = _appliedPromo.asStateFlow()
 
     init {
-        try {
-            storage?.let { s ->
-                val savedToken = s.getString("auth_token")
-                val isLogged = s.getBoolean("is_logged_in", false)
-                val onboardingDone = s.getBoolean("onboarding_completed", false)
-                val userJson = s.getString("user_json")
+        restoreSession()
+        refreshCatalog()
+        if (_isLoggedIn.value) refreshUserData()
+    }
 
-                if (!savedToken.isNullOrBlank() && isLogged) {
-                    ApiConfig.AUTH_TOKEN = savedToken
-                    _isLoggedIn.value = true
-                    _hasSeenOnboarding.value = true
-                    if (!userJson.isNullOrBlank()) {
-                        try {
-                            _currentUser.value = jsonParser.decodeFromString(userJson)
-                        } catch (e: Exception) {}
+    // ---------------- Sessiya ----------------
+
+    private fun restoreSession() {
+        try {
+            val s = storage ?: return
+            val savedToken = s.getString(KEY_TOKEN)
+            val isLogged = s.getBoolean(KEY_LOGGED_IN, false)
+            val onboardingDone = s.getBoolean(KEY_ONBOARDING, false)
+            val userJson = s.getString(KEY_USER)
+
+            if (onboardingDone) _hasSeenOnboarding.value = true
+
+            if (!savedToken.isNullOrBlank() && isLogged) {
+                ApiConfig.AUTH_TOKEN = savedToken
+                _isLoggedIn.value = true
+                _hasSeenOnboarding.value = true
+                if (!userJson.isNullOrBlank()) {
+                    try {
+                        _currentUser.value = jsonParser.decodeFromString(userJson)
+                    } catch (e: Exception) {
+                        // Eski formatdagi ma'lumot - e'tiborsiz qoldiramiz
                     }
-                } else if (onboardingDone) {
-                    _hasSeenOnboarding.value = true
                 }
             }
-        } catch (e: Exception) {}
-        fetchRemoteData()
+
+            s.getString(KEY_RECENT_SEARCHES)?.let { raw ->
+                _recentSearches.value = raw.split(SEARCH_SEPARATOR).filter { it.isNotBlank() }.take(10)
+            }
+        } catch (e: Exception) {
+            // Xotira mavjud bo'lmasa ham ilova ishlashda davom etadi
+        }
+    }
+
+    private fun persistSession(user: User, token: String) {
+        try {
+            storage?.let { s ->
+                s.setString(KEY_TOKEN, token)
+                s.setBoolean(KEY_LOGGED_IN, true)
+                s.setBoolean(KEY_ONBOARDING, true)
+                s.setString(KEY_USER, jsonParser.encodeToString(user))
+            }
+        } catch (e: Exception) {
+        }
     }
 
     fun completeOnboarding() {
         _hasSeenOnboarding.value = true
         try {
-            storage?.setBoolean("onboarding_completed", true)
-        } catch (e: Exception) {}
-    }
-
-    suspend fun login(email: String, password: String): Result<User> {
-        return try {
-            val response: HttpResponse = httpClient.post("${ApiConfig.BASE_URL}/auth/login") {
-                contentType(ContentType.Application.Json)
-                headers { append(HttpHeaders.Accept, "application/json") }
-                setBody(LoginRequest(email = email, password = password))
-            }
-            val responseText = response.bodyAsText()
-            val apiResp: ApiResponse<AuthData> = jsonParser.decodeFromString(responseText)
-
-            if (apiResp.success && apiResp.data?.user != null) {
-                val token = apiResp.data.token ?: ""
-                val userWithToken = apiResp.data.user.copy(token = token)
-                ApiConfig.AUTH_TOKEN = token
-                _currentUser.value = userWithToken
-                _isLoggedIn.value = true
-                _hasSeenOnboarding.value = true
-
-                try {
-                    storage?.let { s ->
-                        s.setString("auth_token", token)
-                        s.setBoolean("is_logged_in", true)
-                        s.setBoolean("onboarding_completed", true)
-                        s.setString("user_json", jsonParser.encodeToString(userWithToken))
-                    }
-                } catch (e: Exception) {}
-
-                fetchRemoteData()
-                Result.success(userWithToken)
-            } else {
-                val errorMsg = apiResp.message ?: apiResp.errors?.values?.firstOrNull()?.firstOrNull() ?: "Email yoki parol xato"
-                Result.failure(Exception(errorMsg))
-            }
+            storage?.setBoolean(KEY_ONBOARDING, true)
         } catch (e: Exception) {
-            Result.failure(Exception(e.message ?: "Tarmoqqa ulanishda xatolik yuz berdi"))
         }
     }
 
-    suspend fun register(fullName: String, email: String, password: String, phone: String? = null): Result<User> {
-        return try {
-            val response: HttpResponse = httpClient.post("${ApiConfig.BASE_URL}/auth/register") {
+    // ---------------- Auth ----------------
+
+    suspend fun login(email: String, password: String): Result<User> = runCatchingNetwork(
+        fallbackMessage = "Serverga ulanib bo'lmadi. Internetni tekshiring."
+    ) {
+        val response = httpClient.post("${ApiConfig.BASE_URL}/auth/login") {
+            contentType(ContentType.Application.Json)
+            setBody(LoginRequest(email = email, password = password))
+        }
+        val apiResp: ApiResponse<AuthData> = decode(response)
+
+        val user = apiResp.data?.user
+        if (!response.status.isSuccess() || !apiResp.success || user == null) {
+            return@runCatchingNetwork Result.failure(Exception(apiResp.firstError("Email yoki parol xato")))
+        }
+
+        val token = apiResp.data?.token.orEmpty()
+        applyAuthenticatedUser(user.copy(token = token), token)
+        Result.success(user)
+    }
+
+    suspend fun register(fullName: String, email: String, password: String, phone: String? = null): Result<User> =
+        runCatchingNetwork(fallbackMessage = "Serverga ulanib bo'lmadi. Internetni tekshiring.") {
+            val response = httpClient.post("${ApiConfig.BASE_URL}/auth/register") {
                 contentType(ContentType.Application.Json)
-                headers { append(HttpHeaders.Accept, "application/json") }
                 setBody(
                     RegisterRequest(
                         fullName = fullName,
                         email = email,
                         password = password,
-                        phone = phone
+                        phone = phone?.takeIf { it.isNotBlank() }
                     )
                 )
             }
-            val responseText = response.bodyAsText()
-            val apiResp: ApiResponse<AuthData> = jsonParser.decodeFromString(responseText)
+            val apiResp: ApiResponse<AuthData> = decode(response)
 
-            if (apiResp.success && apiResp.data?.user != null) {
-                val token = apiResp.data.token ?: ""
-                val userWithToken = apiResp.data.user.copy(token = token)
-                ApiConfig.AUTH_TOKEN = token
-                _currentUser.value = userWithToken
-                _isLoggedIn.value = true
-                _hasSeenOnboarding.value = true
-
-                try {
-                    storage?.let { s ->
-                        s.setString("auth_token", token)
-                        s.setBoolean("is_logged_in", true)
-                        s.setBoolean("onboarding_completed", true)
-                        s.setString("user_json", jsonParser.encodeToString(userWithToken))
-                    }
-                } catch (e: Exception) {}
-
-                fetchRemoteData()
-                Result.success(userWithToken)
-            } else {
-                val errorMsg = apiResp.message ?: apiResp.errors?.values?.firstOrNull()?.firstOrNull() ?: "Ro'yxatdan o'tishda xatolik"
-                Result.failure(Exception(errorMsg))
+            val user = apiResp.data?.user
+            if (!response.status.isSuccess() || !apiResp.success || user == null) {
+                return@runCatchingNetwork Result.failure(Exception(apiResp.firstError("Ro'yxatdan o'tishda xatolik")))
             }
-        } catch (e: Exception) {
-            Result.failure(Exception(e.message ?: "Serverga ulanib bo'lmadi"))
+
+            val token = apiResp.data?.token.orEmpty()
+            applyAuthenticatedUser(user.copy(token = token), token)
+            Result.success(user)
         }
+
+    private fun applyAuthenticatedUser(user: User, token: String) {
+        ApiConfig.AUTH_TOKEN = token
+        _currentUser.value = user
+        _isLoggedIn.value = true
+        _hasSeenOnboarding.value = true
+        persistSession(user, token)
+        refreshCatalog()
+        refreshUserData()
     }
 
-    suspend fun forgotPassword(email: String): Result<String> {
-        return try {
-            val response: HttpResponse = httpClient.post("${ApiConfig.BASE_URL}/auth/forgot-password") {
-                contentType(ContentType.Application.Json)
-                headers { append(HttpHeaders.Accept, "application/json") }
-                setBody(ForgotPasswordRequest(email = email))
-            }
-            val responseText = response.bodyAsText()
-            val apiResp: ApiResponse<Map<String, String>> = jsonParser.decodeFromString(responseText)
-            Result.success(apiResp.message ?: "Tasdiqlash kodi yuborildi")
-        } catch (e: Exception) {
-            Result.success("Tasdiqlash kodi 9627 yuborildi")
+    suspend fun forgotPassword(email: String): Result<String> = runCatchingNetwork(
+        fallbackMessage = "Tasdiqlash kodini yuborib bo'lmadi. Internetni tekshiring."
+    ) {
+        val response = httpClient.post("${ApiConfig.BASE_URL}/auth/forgot-password") {
+            contentType(ContentType.Application.Json)
+            setBody(ForgotPasswordRequest(email = email.trim()))
         }
+        val apiResp: ApiResponse<OtpRequestData> = decode(response)
+
+        if (!response.status.isSuccess() || !apiResp.success) {
+            return@runCatchingNetwork Result.failure(Exception(apiResp.firstError("Bunday email topilmadi")))
+        }
+
+        pendingResetEmail = email.trim()
+        pendingResetToken = ""
+        Result.success(apiResp.message ?: "Tasdiqlash kodi yuborildi")
     }
 
-    suspend fun verifyOtp(email: String, otp: String): Result<String> {
-        return try {
-            val response: HttpResponse = httpClient.post("${ApiConfig.BASE_URL}/auth/verify-otp") {
-                contentType(ContentType.Application.Json)
-                headers { append(HttpHeaders.Accept, "application/json") }
-                setBody(VerifyOtpRequest(email = email, otp = otp))
-            }
-            val responseText = response.bodyAsText()
-            val apiResp: ApiResponse<String> = jsonParser.decodeFromString(responseText)
-            if (apiResp.success) {
-                Result.success("Kod tasdiqlandi")
-            } else {
-                Result.failure(Exception(apiResp.message ?: "Tasdiqlash kodi noto'g'ri"))
-            }
-        } catch (e: Exception) {
-            if (otp == "9627") {
-                Result.success("Kod tasdiqlandi")
-            } else {
-                Result.failure(Exception("Tasdiqlash kodi noto'g'ri (Demo kod: 9627)"))
-            }
+    suspend fun verifyOtp(otp: String): Result<String> = runCatchingNetwork(
+        fallbackMessage = "Kodni tekshirib bo'lmadi. Internetni tekshiring."
+    ) {
+        if (pendingResetEmail.isBlank()) {
+            return@runCatchingNetwork Result.failure(Exception("Avval email manzilingizni kiriting"))
         }
+
+        val response = httpClient.post("${ApiConfig.BASE_URL}/auth/verify-otp") {
+            contentType(ContentType.Application.Json)
+            setBody(VerifyOtpRequest(email = pendingResetEmail, otp = otp))
+        }
+        val apiResp: ApiResponse<ResetTokenData> = decode(response)
+
+        if (!response.status.isSuccess() || !apiResp.success) {
+            return@runCatchingNetwork Result.failure(Exception(apiResp.firstError("Tasdiqlash kodi noto'g'ri")))
+        }
+
+        pendingResetToken = apiResp.data?.resetToken.orEmpty()
+        Result.success("Kod tasdiqlandi")
     }
 
-    suspend fun resetPassword(email: String, password: String): Result<String> {
-        return try {
-            val response: HttpResponse = httpClient.post("${ApiConfig.BASE_URL}/auth/reset-password") {
-                contentType(ContentType.Application.Json)
-                headers { append(HttpHeaders.Accept, "application/json") }
-                setBody(
-                    ResetPasswordRequest(
-                        email = email,
-                        password = password,
-                        passwordConfirmation = password
-                    )
+    suspend fun resetPassword(password: String): Result<String> = runCatchingNetwork(
+        fallbackMessage = "Parolni yangilab bo'lmadi. Internetni tekshiring."
+    ) {
+        if (pendingResetEmail.isBlank() || pendingResetToken.isBlank()) {
+            return@runCatchingNetwork Result.failure(Exception("Avval tasdiqlash kodini kiriting"))
+        }
+
+        val response = httpClient.post("${ApiConfig.BASE_URL}/auth/reset-password") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                ResetPasswordRequest(
+                    email = pendingResetEmail,
+                    resetToken = pendingResetToken,
+                    password = password,
+                    passwordConfirmation = password
                 )
-            }
-            val responseText = response.bodyAsText()
-            val apiResp: ApiResponse<String> = jsonParser.decodeFromString(responseText)
-            Result.success(apiResp.message ?: "Parol muvaffaqiyatli yangilandi")
-        } catch (e: Exception) {
-            Result.success("Parol muvaffaqiyatli yangilandi")
+            )
         }
+        val apiResp: ApiResponse<String> = decode(response)
+
+        if (!response.status.isSuccess() || !apiResp.success) {
+            return@runCatchingNetwork Result.failure(Exception(apiResp.firstError("Parolni yangilab bo'lmadi")))
+        }
+
+        pendingResetEmail = ""
+        pendingResetToken = ""
+        Result.success(apiResp.message ?: "Parol muvaffaqiyatli yangilandi")
     }
 
     fun logout() {
+        val token = ApiConfig.AUTH_TOKEN
+        // Avval lokal token tozalanadi - aks holda so'rovga ikkita Authorization sarlavhasi tushadi
         ApiConfig.AUTH_TOKEN = null
+
+        scope.launch {
+            try {
+                if (!token.isNullOrBlank()) {
+                    httpClient.post("${ApiConfig.BASE_URL}/auth/logout") {
+                        header(HttpHeaders.Authorization, "Bearer $token")
+                    }
+                }
+            } catch (e: Exception) {
+                // Server javob bermasa ham lokal sessiya tozalanadi
+            }
+        }
+
         _isLoggedIn.value = false
         _currentUser.value = User()
         _cartItems.value = emptyList()
-        _lastCreatedOrder.value = null
+        _savedCards.value = emptyList()
+        _addresses.value = emptyList()
+        _notifications.value = emptyList()
+        _unreadNotifications.value = 0
+        _conversations.value = emptyList()
+        _chatMessages.value = emptyList()
+        _activeChatId.value = null
+        _orders.value = emptyList()
+        _activeOrder.value = null
+        _appliedPromo.value = null
+
         try {
             storage?.let { s ->
-                s.remove("auth_token")
-                s.setBoolean("is_logged_in", false)
-                s.remove("user_json")
+                s.remove(KEY_TOKEN)
+                s.setBoolean(KEY_LOGGED_IN, false)
+                s.remove(KEY_USER)
             }
-        } catch (e: Exception) {}
+        } catch (e: Exception) {
+        }
     }
 
-    fun fetchRemoteData() {
+    // ---------------- Katalog ----------------
+
+    fun refreshCatalog() {
         scope.launch {
+            _isCatalogLoading.value = true
+            var failed = false
+
             try {
-                val catResponseText = httpClient.get("${ApiConfig.BASE_URL}/categories") {
-                    headers { append(HttpHeaders.Accept, "application/json") }
-                }.bodyAsText()
-                val catResponse: ApiResponse<List<Category>> = jsonParser.decodeFromString(catResponseText)
-                if (catResponse.success && !catResponse.data.isNullOrEmpty()) {
-                    _categories.value = catResponse.data.mapIndexed { index, cat ->
-                        val icon = when (cat.name.lowercase().trim()) {
-                            "burger" -> "🍔"
-                            "taco" -> "🌮"
-                            "drink" -> "🥤"
-                            "pizza" -> "🍕"
-                            else -> "🍲"
-                        }
+                val response = httpClient.get("${ApiConfig.BASE_URL}/categories")
+                val apiResp: ApiResponse<List<Category>> = decode(response)
+                if (apiResp.success && !apiResp.data.isNullOrEmpty()) {
+                    _categories.value = apiResp.data.map { cat ->
                         cat.copy(
-                            icon = icon,
-                            isSelected = if (currentSelectedCategoryId == 0L) index == 0 else cat.id == currentSelectedCategoryId
+                            icon = cat.icon.ifBlank { iconForCategory(cat.name) },
+                            isSelected = cat.id == currentSelectedCategoryId
                         )
                     }
                 }
             } catch (e: Exception) {
-                // Keep defaults if offline
+                failed = true
             }
 
             try {
-                val foodResponseText = httpClient.get("${ApiConfig.BASE_URL}/foods") {
-                    headers { append(HttpHeaders.Accept, "application/json") }
-                }.bodyAsText()
-                val foodResponse: ApiResponse<List<Food>> = jsonParser.decodeFromString(foodResponseText)
-                if (foodResponse.success && !foodResponse.data.isNullOrEmpty()) {
-                    allFoodsCache = foodResponse.data
+                val response = httpClient.get("${ApiConfig.BASE_URL}/foods")
+                val apiResp: ApiResponse<List<Food>> = decode(response)
+                if (apiResp.success && apiResp.data != null) {
+                    _allFoods.value = apiResp.data
                     applyFoodFilter(currentSelectedCategoryId)
                 }
             } catch (e: Exception) {
-                // Keep defaults if offline
+                failed = true
             }
+
+            _catalogError.value = if (failed) "Ma'lumotlarni yangilab bo'lmadi. Oflayn ma'lumotlar ko'rsatilmoqda." else null
+            _isCatalogLoading.value = false
         }
+    }
+
+    private fun iconForCategory(name: String): String = when (name.lowercase().trim()) {
+        "burger" -> "🍔"
+        "taco" -> "🌮"
+        "drink", "ichimlik" -> "🥤"
+        "pizza" -> "🍕"
+        "salad", "salat" -> "🥗"
+        "dessert", "shirinlik" -> "🍰"
+        else -> "🍲"
     }
 
     fun selectCategory(categoryId: Long) {
         currentSelectedCategoryId = categoryId
-        _categories.update { list ->
-            list.map { it.copy(isSelected = it.id == categoryId) }
-        }
+        _categories.update { list -> list.map { it.copy(isSelected = it.id == categoryId) } }
         applyFoodFilter(categoryId)
     }
 
     private fun applyFoodFilter(categoryId: Long) {
-        _foods.update {
-            if (categoryId == 0L) {
-                allFoodsCache
-            } else {
-                val filtered = allFoodsCache.filter { it.categoryId == categoryId }
-                if (filtered.isNotEmpty()) filtered else allFoodsCache
-            }
+        // Kategoriya bo'sh bo'lsa - bo'sh ro'yxat ko'rsatiladi (avval butun ro'yxat qaytarilardi va
+        // foydalanuvchiga filtr ishlamayotgandek tuyulardi)
+        _foods.value = if (categoryId == 0L) _allFoods.value else _allFoods.value.filter { it.categoryId == categoryId }
+    }
+
+    /** Qidiruv butun katalog bo'yicha ishlaydi, joriy kategoriya bilan cheklanmaydi */
+    fun searchFoods(query: String): List<Food> {
+        val trimmed = query.trim()
+        if (trimmed.isBlank()) return emptyList()
+        return _allFoods.value.filter {
+            it.name.contains(trimmed, ignoreCase = true) || it.description.contains(trimmed, ignoreCase = true)
         }
     }
 
-    fun searchFoods(query: String) {
-        if (query.isBlank()) {
-            applyFoodFilter(currentSelectedCategoryId)
-        } else {
-            _foods.update {
-                allFoodsCache.filter {
-                    it.name.contains(query, ignoreCase = true) || it.description.contains(query, ignoreCase = true)
-                }
-            }
-        }
-    }
+    fun findFoodById(foodId: Long): Food? = _allFoods.value.find { it.id == foodId }
+
+    fun recommendedFor(food: Food): List<Food> =
+        _allFoods.value.filter { it.categoryId == food.categoryId && it.id != food.id }.ifEmpty {
+            _allFoods.value.filter { it.id != food.id }
+        }.take(6)
 
     fun toggleFavorite(foodId: Long) {
-        allFoodsCache = allFoodsCache.map { if (it.id == foodId) it.copy(isFavorite = !it.isFavorite) else it }
-        _foods.update { list ->
-            list.map { if (it.id == foodId) it.copy(isFavorite = !it.isFavorite) else it }
+        _allFoods.update { list -> list.map { if (it.id == foodId) it.copy(isFavorite = !it.isFavorite) else it } }
+        applyFoodFilter(currentSelectedCategoryId)
+    }
+
+    // ---------------- Qidiruv tarixi ----------------
+
+    fun addRecentSearch(query: String) {
+        val trimmed = query.trim()
+        if (trimmed.length < 2) return
+        _recentSearches.update { list ->
+            (listOf(trimmed) + list.filterNot { it.equals(trimmed, ignoreCase = true) }).take(10)
+        }
+        persistRecentSearches()
+    }
+
+    fun removeRecentSearch(query: String) {
+        _recentSearches.update { list -> list.filterNot { it == query } }
+        persistRecentSearches()
+    }
+
+    fun clearRecentSearches() {
+        _recentSearches.value = emptyList()
+        persistRecentSearches()
+    }
+
+    private fun persistRecentSearches() {
+        try {
+            storage?.setString(KEY_RECENT_SEARCHES, _recentSearches.value.joinToString(SEARCH_SEPARATOR))
+        } catch (e: Exception) {
         }
     }
+
+    // ---------------- Savat ----------------
 
     fun addToCart(food: Food, quantity: Int = 1) {
         _cartItems.update { list ->
@@ -529,193 +552,410 @@ class FoodDeliveryRepository {
         }
     }
 
+    fun setCartItemSelected(foodId: Long, selected: Boolean) {
+        _cartItems.update { list ->
+            list.map { if (it.food.id == foodId) it.copy(isSelected = selected) else it }
+        }
+    }
+
     fun removeCartItem(foodId: Long) {
         _cartItems.update { list -> list.filterNot { it.food.id == foodId } }
     }
 
     fun clearCart() {
         _cartItems.value = emptyList()
+        _appliedPromo.value = null
     }
 
-    fun addRecentSearch(query: String) {
-        if (query.isNotBlank()) {
-            _recentSearches.update { list -> (listOf(query) + list.filterNot { it.equals(query, ignoreCase = true) }).take(10) }
+    fun selectedCartItems(): List<CartItem> = _cartItems.value.filter { it.isSelected }
+
+    // ---------------- Promo kod ----------------
+
+    suspend fun applyPromoCode(code: String, subtotal: Double): Result<PromoValidationData> = runCatchingNetwork(
+        fallbackMessage = "Promo kodni tekshirib bo'lmadi. Internetni tekshiring."
+    ) {
+        if (code.isBlank()) {
+            return@runCatchingNetwork Result.failure(Exception("Promo kodni kiriting"))
         }
+
+        val response = httpClient.post("${ApiConfig.BASE_URL}/promotions/validate") {
+            contentType(ContentType.Application.Json)
+            setBody(ValidatePromoRequest(code = code.trim().uppercase(), subtotal = subtotal))
+        }
+        val apiResp: ApiResponse<PromoValidationData> = decode(response)
+
+        val data = apiResp.data
+        if (!response.status.isSuccess() || !apiResp.success || data == null) {
+            _appliedPromo.value = null
+            return@runCatchingNetwork Result.failure(Exception(apiResp.firstError("Promo kod amal qilmaydi")))
+        }
+
+        _appliedPromo.value = data
+        Result.success(data)
     }
 
-    fun removeRecentSearch(query: String) {
-        _recentSearches.update { list -> list.filterNot { it == query } }
+    fun clearPromoCode() {
+        _appliedPromo.value = null
     }
 
-    fun clearRecentSearches() {
-        _recentSearches.value = emptyList()
+    // ---------------- Foydalanuvchi ma'lumotlari ----------------
+
+    fun refreshUserData() {
+        if (!_isLoggedIn.value) return
+        scope.launch { loadProfile() }
+        scope.launch { loadCards() }
+        scope.launch { loadAddresses() }
+        scope.launch { loadNotifications() }
+        scope.launch { loadConversations() }
+        scope.launch { loadOrders() }
     }
 
-    fun sendChatMessage(text: String) {
-        if (text.isNotBlank()) {
-            val newMessage = ChatMessage(
-                id = _chatMessages.value.size.toLong() + 1,
-                senderId = _currentUser.value.id,
-                text = text,
-                timestamp = "Now",
-                isFromMe = true
-            )
-            _chatMessages.update { list -> list + newMessage }
-
-            scope.launch {
-                try {
-                    httpClient.post("${ApiConfig.BASE_URL}/chats/1/messages") {
-                        contentType(ContentType.Application.Json)
-                        headers {
-                            append(HttpHeaders.Accept, "application/json")
-                            ApiConfig.AUTH_TOKEN?.let { token ->
-                                append(HttpHeaders.Authorization, "Bearer $token")
-                            }
-                        }
-                        setBody(buildJsonObject { put("text", text) })
-                    }
-                } catch (e: Exception) {
-                    // Keep message locally if offline
-                }
+    private suspend fun loadProfile() {
+        try {
+            val response = httpClient.get("${ApiConfig.BASE_URL}/auth/profile")
+            if (response.status == HttpStatusCode.Unauthorized) {
+                handleUnauthorized()
+                return
             }
+            val apiResp: ApiResponse<User> = decode(response)
+            apiResp.data?.let { user ->
+                val token = ApiConfig.AUTH_TOKEN.orEmpty()
+                _currentUser.value = user.copy(token = token)
+                persistSession(_currentUser.value, token)
+            }
+        } catch (e: Exception) {
         }
     }
 
-    fun updateUserProfile(name: String, phone: String, email: String, dob: String, gender: String) {
-        _currentUser.update {
-            it.copy(
-                fullName = name,
-                phone = phone,
-                email = email,
-                dateOfBirth = dob,
-                gender = gender
-            )
+    suspend fun loadCards() {
+        try {
+            val response = httpClient.get("${ApiConfig.BASE_URL}/cards")
+            val apiResp: ApiResponse<List<SavedPaymentCard>> = decode(response)
+            if (apiResp.success && apiResp.data != null) {
+                _savedCards.value = apiResp.data
+            }
+        } catch (e: Exception) {
         }
+    }
 
+    suspend fun loadAddresses() {
+        try {
+            val response = httpClient.get("${ApiConfig.BASE_URL}/addresses")
+            val apiResp: ApiResponse<List<Address>> = decode(response)
+            if (apiResp.success && apiResp.data != null) {
+                _addresses.value = apiResp.data
+            }
+        } catch (e: Exception) {
+        }
+    }
+
+    suspend fun loadNotifications() {
+        try {
+            val response = httpClient.get("${ApiConfig.BASE_URL}/notifications")
+            val apiResp: ApiResponse<List<ServerNotification>> = decode(response)
+            if (apiResp.success && apiResp.data != null) {
+                _notifications.value = apiResp.data.map { it.toDomain() }
+                _unreadNotifications.value = apiResp.data.count { !it.isRead }
+            }
+        } catch (e: Exception) {
+        }
+    }
+
+    fun markNotificationsRead() {
+        if (_unreadNotifications.value == 0) return
+        _notifications.update { list -> list.map { it.copy(isRead = true) } }
+        _unreadNotifications.value = 0
         scope.launch {
             try {
-                httpClient.put("${ApiConfig.BASE_URL}/auth/profile") {
-                    contentType(ContentType.Application.Json)
-                    headers {
-                        append(HttpHeaders.Accept, "application/json")
-                        ApiConfig.AUTH_TOKEN?.let { token ->
-                            append(HttpHeaders.Authorization, "Bearer $token")
-                        }
-                    }
-                    setBody(
-                        buildJsonObject {
-                            put("full_name", name)
-                            if (phone.isNotBlank()) put("phone", phone)
-                            if (dob.isNotBlank()) put("date_of_birth", dob)
-                            put("gender", gender)
-                        }
-                    )
-                }
+                httpClient.post("${ApiConfig.BASE_URL}/notifications/read-all")
             } catch (e: Exception) {
-                // Keep local updated state if offline
             }
         }
     }
 
-    fun addPaymentCard(card: SavedPaymentCard) {
-        val newCard = card.copy(id = _savedCards.value.size.toLong() + 1)
-        _savedCards.update { list -> list + newCard }
-
-        scope.launch {
-            try {
-                httpClient.post("${ApiConfig.BASE_URL}/cards") {
-                    contentType(ContentType.Application.Json)
-                    headers {
-                        append(HttpHeaders.Accept, "application/json")
-                        ApiConfig.AUTH_TOKEN?.let { token ->
-                            append(HttpHeaders.Authorization, "Bearer $token")
-                        }
-                    }
-                    setBody(
-                        buildJsonObject {
-                            put("card_holder_name", card.cardHolderName)
-                            put("card_number", "860012345678" + card.lastFour)
-                            put("expiry_date", card.expiryDate)
-                            put("card_type", card.cardType)
-                        }
-                    )
+    suspend fun loadOrders() {
+        try {
+            val response = httpClient.get("${ApiConfig.BASE_URL}/orders")
+            val apiResp: ApiResponse<List<ServerOrder>> = decode(response)
+            if (apiResp.success && apiResp.data != null) {
+                val mapped = apiResp.data.map { it.toDomain() }
+                _orders.value = mapped
+                _activeOrder.value = mapped.firstOrNull {
+                    it.status == OrderStatus.PREPARING || it.status == OrderStatus.ON_THE_WAY || it.status == OrderStatus.PENDING
                 }
-            } catch (e: Exception) {
-                // Keep local card
             }
+        } catch (e: Exception) {
         }
     }
 
-    fun removePaymentCard(cardId: Long) {
+    // ---------------- Profil ----------------
+
+    suspend fun updateUserProfile(name: String, phone: String, dob: String, gender: String): Result<User> =
+        runCatchingNetwork(fallbackMessage = "Profilni saqlab bo'lmadi. Internetni tekshiring.") {
+            val response = httpClient.put("${ApiConfig.BASE_URL}/auth/profile") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    UpdateProfileRequest(
+                        fullName = name.trim(),
+                        phone = phone.trim().takeIf { it.isNotBlank() },
+                        dateOfBirth = dob.trim().takeIf { it.isNotBlank() },
+                        gender = gender.takeIf { it in listOf("Male", "Female", "Other") }
+                    )
+                )
+            }
+            val apiResp: ApiResponse<User> = decode(response)
+
+            val user = apiResp.data
+            if (!response.status.isSuccess() || !apiResp.success || user == null) {
+                return@runCatchingNetwork Result.failure(Exception(apiResp.firstError("Profilni saqlab bo'lmadi")))
+            }
+
+            val token = ApiConfig.AUTH_TOKEN.orEmpty()
+            _currentUser.value = user.copy(token = token)
+            persistSession(_currentUser.value, token)
+            Result.success(user)
+        }
+
+    // ---------------- Kartalar ----------------
+
+    suspend fun addPaymentCard(
+        holderName: String,
+        cardNumber: String,
+        expiryDate: String,
+        cardType: String? = null
+    ): Result<SavedPaymentCard> = runCatchingNetwork(
+        fallbackMessage = "Kartani saqlab bo'lmadi. Internetni tekshiring."
+    ) {
+        val response = httpClient.post("${ApiConfig.BASE_URL}/cards") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                CreateCardRequest(
+                    cardHolderName = holderName.trim(),
+                    cardNumber = cardNumber.filter { it.isDigit() },
+                    expiryDate = expiryDate.trim(),
+                    cardType = cardType
+                )
+            )
+        }
+        val apiResp: ApiResponse<SavedPaymentCard> = decode(response)
+
+        val card = apiResp.data
+        if (!response.status.isSuccess() || !apiResp.success || card == null) {
+            return@runCatchingNetwork Result.failure(Exception(apiResp.firstError("Kartani saqlab bo'lmadi")))
+        }
+
+        // Server bergan haqiqiy ID bilan ishlaymiz (lokal indeks emas)
+        _savedCards.update { list -> list + card }
+        Result.success(card)
+    }
+
+    suspend fun removePaymentCard(cardId: Long): Result<Unit> = runCatchingNetwork(
+        fallbackMessage = "Kartani o'chirib bo'lmadi. Internetni tekshiring."
+    ) {
+        val response = httpClient.delete("${ApiConfig.BASE_URL}/cards/$cardId")
+        val apiResp: ApiResponse<String> = decode(response)
+
+        if (!response.status.isSuccess() || !apiResp.success) {
+            return@runCatchingNetwork Result.failure(Exception(apiResp.firstError("Kartani o'chirib bo'lmadi")))
+        }
+
         _savedCards.update { list -> list.filterNot { it.id == cardId } }
+        Result.success(Unit)
+    }
 
-        scope.launch {
-            try {
-                httpClient.delete("${ApiConfig.BASE_URL}/cards/$cardId") {
-                    headers {
-                        append(HttpHeaders.Accept, "application/json")
-                        ApiConfig.AUTH_TOKEN?.let { token ->
-                            append(HttpHeaders.Authorization, "Bearer $token")
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                // Keep local deletion
+    // ---------------- Manzillar ----------------
+
+    suspend fun addAddress(addressLine: String, houseNumber: String, city: String, label: String = "Home"): Result<Address> =
+        runCatchingNetwork(fallbackMessage = "Manzilni saqlab bo'lmadi. Internetni tekshiring.") {
+            val response = httpClient.post("${ApiConfig.BASE_URL}/addresses") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    CreateAddressRequest(
+                        label = label,
+                        addressLine = addressLine.trim(),
+                        houseNumber = houseNumber.trim(),
+                        city = city.trim(),
+                        isDefault = _addresses.value.isEmpty()
+                    )
+                )
             }
+            val apiResp: ApiResponse<Address> = decode(response)
+
+            val address = apiResp.data
+            if (!response.status.isSuccess() || !apiResp.success || address == null) {
+                return@runCatchingNetwork Result.failure(Exception(apiResp.firstError("Manzilni saqlab bo'lmadi")))
+            }
+
+            _addresses.update { list -> list.map { it.copy(isDefault = false) } + address }
+            Result.success(address)
+        }
+
+    fun defaultAddress(): Address? = _addresses.value.firstOrNull { it.isDefault } ?: _addresses.value.firstOrNull()
+
+    // ---------------- Buyurtma ----------------
+
+    /**
+     * Buyurtma serverga yuboriladi va faqat server tasdiqlagach muvaffaqiyatli hisoblanadi.
+     * Ilgari buyurtma lokal yaratilib, server xatosi foydalanuvchidan yashirilardi.
+     */
+    suspend fun placeOrder(
+        paymentMethod: String = "card",
+        notes: String = ""
+    ): Result<Order> = runCatchingNetwork(fallbackMessage = "Buyurtmani yuborib bo'lmadi. Internetni tekshiring.") {
+        val items = selectedCartItems()
+        if (items.isEmpty()) {
+            return@runCatchingNetwork Result.failure(Exception("Savat bo'sh. Avval taom tanlang."))
+        }
+
+        val response = httpClient.post("${ApiConfig.BASE_URL}/orders") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                CreateOrderRequest(
+                    addressId = defaultAddress()?.id,
+                    paymentMethod = paymentMethod,
+                    promoCode = _appliedPromo.value?.code,
+                    notes = notes.takeIf { it.isNotBlank() },
+                    items = items.map { CreateOrderItemRequest(foodId = it.food.id, quantity = it.quantity) }
+                )
+            )
+        }
+
+        if (response.status == HttpStatusCode.Unauthorized) {
+            handleUnauthorized()
+            return@runCatchingNetwork Result.failure(Exception("Sessiya muddati tugagan. Qaytadan kiring."))
+        }
+
+        val apiResp: ApiResponse<ServerOrder> = decode(response)
+        val serverOrder = apiResp.data
+        if (!response.status.isSuccess() || !apiResp.success || serverOrder == null) {
+            return@runCatchingNetwork Result.failure(Exception(apiResp.firstError("Buyurtmani rasmiylashtirib bo'lmadi")))
+        }
+
+        val order = serverOrder.toDomain(fallbackAddress = defaultAddress()?.addressLine.orEmpty())
+        _activeOrder.value = order
+        _orders.update { listOf(order) + it }
+
+        // Faqat buyurtmaga kirgan mahsulotlar savatdan olib tashlanadi
+        val orderedIds = items.map { it.food.id }.toSet()
+        _cartItems.update { list -> list.filterNot { it.food.id in orderedIds } }
+        _appliedPromo.value = null
+
+        scope.launch { loadConversations() }
+        Result.success(order)
+    }
+
+    // ---------------- Chat ----------------
+
+    suspend fun loadConversations() {
+        try {
+            val response = httpClient.get("${ApiConfig.BASE_URL}/chats")
+            val apiResp: ApiResponse<List<ServerChat>> = decode(response)
+            if (apiResp.success && apiResp.data != null) {
+                _conversations.value = apiResp.data.map { it.toDomain() }
+                if (_activeChatId.value == null) {
+                    _activeChatId.value = apiResp.data.firstOrNull()?.id
+                }
+            }
+        } catch (e: Exception) {
         }
     }
 
-    fun placeOrder(address: String = "New York City, BC54 Berlin", paymentMethod: String = "card", notes: String = ""): Order {
-        val currentCart = _cartItems.value
-        val subtotal = currentCart.sumOf { it.totalPrice }
-        val deliveryFee = 2000.0
-        val discount = 3000.0
-        val total = (subtotal + deliveryFee - discount).coerceAtLeast(0.0)
+    suspend fun openChat(chatId: Long) {
+        _activeChatId.value = chatId
+        loadMessages(chatId)
+        _conversations.update { list -> list.map { if (it.id == chatId) it.copy(unreadCount = 0) else it } }
+    }
 
-        val newOrder = Order(
-            id = (1000..9999).random().toLong(),
-            orderNumber = "ORD-${(100000..999999).random()}",
-            items = currentCart,
-            status = OrderStatus.PREPARING,
-            deliveryAddress = address,
-            subtotal = subtotal,
-            deliveryFee = deliveryFee,
-            discount = discount,
-            tax = 0.0,
-            total = total,
-            courier = currentCourier,
-            createdAt = "Just now"
-        )
-
-        _lastCreatedOrder.value = newOrder
-        clearCart()
-
-        // Asynchronously post to backend with typed body
-        scope.launch {
-            try {
-                httpClient.post("${ApiConfig.BASE_URL}/orders") {
-                    contentType(ContentType.Application.Json)
-                    headers {
-                        append(HttpHeaders.Accept, "application/json")
-                        ApiConfig.AUTH_TOKEN?.let { token ->
-                            append(HttpHeaders.Authorization, "Bearer $token")
-                        }
-                    }
-                    setBody(
-                        CreateOrderRequest(
-                            addressId = null,
-                            paymentMethod = paymentMethod,
-                            items = currentCart.map {
-                                CreateOrderItemRequest(foodId = it.food.id, quantity = it.quantity)
-                            }
-                        )
-                    )
-                }
-            } catch (e: Exception) {
-                // Keep local order active even if offline
+    suspend fun loadMessages(chatId: Long) {
+        try {
+            val response = httpClient.get("${ApiConfig.BASE_URL}/chats/$chatId/messages")
+            val apiResp: ApiResponse<List<ServerMessage>> = decode(response)
+            if (apiResp.success && apiResp.data != null) {
+                val myId = _currentUser.value.id
+                _chatMessages.value = apiResp.data.map { it.toDomain(myId) }
             }
+        } catch (e: Exception) {
+        }
+    }
+
+    suspend fun sendChatMessage(text: String): Result<Unit> = runCatchingNetwork(
+        fallbackMessage = "Xabar yuborilmadi. Internetni tekshiring."
+    ) {
+        val trimmed = text.trim()
+        if (trimmed.isBlank()) return@runCatchingNetwork Result.success(Unit)
+
+        if (_activeChatId.value == null) {
+            loadConversations()
+        }
+        val targetChatId = _activeChatId.value
+            ?: return@runCatchingNetwork Result.failure(Exception("Suhbat topilmadi"))
+
+        // Optimistik ko'rsatish - xabar darhol ekranda paydo bo'ladi
+        val optimistic = ChatMessage(
+            id = -(_chatMessages.value.size + 1).toLong(),
+            senderId = _currentUser.value.id,
+            text = trimmed,
+            timestamp = "",
+            isFromMe = true
+        )
+        _chatMessages.update { it + optimistic }
+
+        val response = httpClient.post("${ApiConfig.BASE_URL}/chats/$targetChatId/messages") {
+            contentType(ContentType.Application.Json)
+            setBody(SendMessageRequest(text = trimmed))
         }
 
-        return newOrder
+        if (!response.status.isSuccess()) {
+            _chatMessages.update { list -> list.filterNot { it.id == optimistic.id } }
+            val apiResp: ApiResponse<ServerMessage> = decode(response)
+            return@runCatchingNetwork Result.failure(Exception(apiResp.firstError("Xabar yuborilmadi")))
+        }
+
+        loadMessages(targetChatId)
+        Result.success(Unit)
+    }
+
+    // ---------------- Yordamchilar ----------------
+
+    private fun handleUnauthorized() {
+        // Token eskirgan - foydalanuvchini qayta kirishga yo'naltiramiz
+        logout()
+    }
+
+    private suspend inline fun <reified T> decode(response: HttpResponse): ApiResponse<T> {
+        val text = response.bodyAsText()
+        return try {
+            jsonParser.decodeFromString(text)
+        } catch (e: Exception) {
+            ApiResponse(
+                success = false,
+                message = if (response.status.value >= 500) {
+                    "Serverda xatolik (${response.status.value})"
+                } else {
+                    "Server javobini o'qib bo'lmadi"
+                }
+            )
+        }
+    }
+
+    private inline fun <T> runCatchingNetwork(
+        fallbackMessage: String,
+        block: () -> Result<T>
+    ): Result<T> = try {
+        block()
+    } catch (e: Exception) {
+        Result.failure(Exception(e.message?.takeIf { it.isNotBlank() } ?: fallbackMessage))
+    }
+
+    private companion object {
+        const val KEY_TOKEN = "auth_token"
+        const val KEY_LOGGED_IN = "is_logged_in"
+        const val KEY_ONBOARDING = "onboarding_completed"
+        const val KEY_USER = "user_json"
+        const val KEY_RECENT_SEARCHES = "recent_searches"
+        const val SEARCH_SEPARATOR = "|~|"
     }
 }
+
+private fun <T> ApiResponse<T>.firstError(default: String): String =
+    errors?.values?.firstOrNull()?.firstOrNull() ?: message?.takeIf { it.isNotBlank() } ?: default

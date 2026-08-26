@@ -6,8 +6,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Call
@@ -27,29 +29,30 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fooddelivery.components.AppHeaderBar
 import com.fooddelivery.data.repository.FoodDeliveryRepository
 import com.fooddelivery.domain.models.ChatMessage
 import com.fooddelivery.theme.*
+import kotlinx.coroutines.launch
 
 @Composable
 fun ChatListScreen(
     repository: FoodDeliveryRepository,
     onNavigateToChat: (Long) -> Unit
 ) {
-    val courier = repository.currentCourier
-    val messages by repository.chatMessages.collectAsState()
-    val lastOrder by repository.lastCreatedOrder.collectAsState()
+    val conversations by repository.conversations.collectAsState()
 
-    val lastSupportMessage = messages.lastOrNull()?.text ?: "Assalomu alaykum! Qanday yordam bera olamiz?"
-    val lastSupportTime = messages.lastOrNull()?.timestamp ?: "Online"
+    // Suhbatlar ro'yxati serverdan olinadi (ilgari qattiq yozilgan ikkita element edi)
+    LaunchedEffect(Unit) { repository.loadConversations() }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(BackgroundWhite)
+            .statusBarsPadding()
     ) {
         AppHeaderBar(title = "Chat List")
 
@@ -65,30 +68,30 @@ fun ChatListScreen(
 
             Spacer(Modifier.height(14.dp))
 
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-                contentPadding = PaddingValues(bottom = 90.dp)
-            ) {
-                // 1. Support Chat Desk (Admin Support)
-                item {
-                    ChatListItemRow(
-                        name = "Insof Qo'llab-quvvatlash (Support)",
-                        message = lastSupportMessage,
-                        time = lastSupportTime,
-                        unreadCount = if (messages.isNotEmpty()) 1 else 0,
-                        onClick = { onNavigateToChat(courier.id) }
+            if (conversations.isEmpty()) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(top = 60.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(text = "💬", fontSize = 44.sp)
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        text = "Hozircha suhbatlar yo'q",
+                        style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
                     )
                 }
-
-                // 2. Active Courier Chat (If user has an order)
-                if (lastOrder != null) {
-                    item {
+            } else {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    contentPadding = PaddingValues(bottom = 90.dp)
+                ) {
+                    items(conversations, key = { it.id }) { chat ->
                         ChatListItemRow(
-                            name = "${courier.name} (Kuryer)",
-                            message = "Buyurtmangiz yo'lda (${lastOrder?.orderNumber ?: ""})",
-                            time = "Faol",
-                            unreadCount = 0,
-                            onClick = { onNavigateToChat(courier.id) }
+                            name = chat.title,
+                            message = chat.lastMessage,
+                            time = chat.lastMessageAt,
+                            unreadCount = chat.unreadCount,
+                            onClick = { onNavigateToChat(chat.id) }
                         )
                     }
                 }
@@ -133,7 +136,8 @@ fun ChatListItemRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = name,
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                maxLines = 1
             )
             Spacer(Modifier.height(2.dp))
             Text(
@@ -157,7 +161,7 @@ fun ChatListItemRow(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "$unreadCount",
+                        text = if (unreadCount > 9) "9+" else "$unreadCount",
                         style = TextStyle(color = TextWhite, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     )
                 }
@@ -168,21 +172,37 @@ fun ChatListItemRow(
 
 @Composable
 fun ChatScreen(
-    courierId: Long,
+    chatId: Long,
     repository: FoodDeliveryRepository,
     onBackClick: () -> Unit,
-    onNavigateToCall: (Long) -> Unit
+    onNavigateToCall: (String) -> Unit
 ) {
-    val courier = repository.currentCourier
     val messages by repository.chatMessages.collectAsState()
+    val conversations by repository.conversations.collectAsState()
     var inputText by remember { mutableStateOf("") }
+    var isSending by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+
+    val conversation = conversations.find { it.id == chatId }
+    val title = conversation?.title ?: "Suhbat"
+
+    LaunchedEffect(chatId) { repository.openChat(chatId) }
+
+    // Yangi xabar kelganda oxirgi xabarga tushamiz
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(BackgroundWhite)
+            .statusBarsPadding()
+            .imePadding()  // Klaviatura ochilganda kiritish maydoni berkilib qolmaydi
+            .navigationBarsPadding()
     ) {
-        // Chat Header with Avatar, Name, Call button
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -206,7 +226,7 @@ fun ChatScreen(
                 )
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f).padding(horizontal = 10.dp)) {
                 Box(
                     modifier = Modifier
                         .size(36.dp)
@@ -223,8 +243,9 @@ fun ChatScreen(
                 }
                 Spacer(Modifier.width(10.dp))
                 Text(
-                    text = courier.name,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    maxLines = 1
                 )
             }
 
@@ -233,7 +254,7 @@ fun ChatScreen(
                     .size(42.dp)
                     .background(SurfaceLight, CircleShape)
                     .border(1.dp, BorderLight, CircleShape)
-                    .clickable { onNavigateToCall(courier.id) },
+                    .clickable { onNavigateToCall(title) },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -247,20 +268,36 @@ fun ChatScreen(
 
         HorizontalDivider(color = BorderLight)
 
-        // Chat Message List
-        LazyColumn(
-            modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-            contentPadding = PaddingValues(vertical = 16.dp)
-        ) {
-            items(messages) { message ->
-                MessageBubble(message = message)
+        if (messages.isEmpty()) {
+            Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Text(
+                    text = "Suhbatni boshlang 👋",
+                    style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
+                )
+            }
+        } else {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+                contentPadding = PaddingValues(vertical = 16.dp)
+            ) {
+                items(messages, key = { it.id }) { message ->
+                    MessageBubble(message = message)
+                }
             }
         }
 
-        // Bottom Input Row
+        errorMessage?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodySmall.copy(color = DangerRed),
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
+            )
+        }
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -270,54 +307,71 @@ fun ChatScreen(
             Row(
                 modifier = Modifier
                     .weight(1f)
-                    .height(52.dp)
+                    .heightIn(min = 52.dp)
                     .background(SurfaceLight, RoundedCornerShape(26.dp))
                     .border(1.dp, BorderLight, RoundedCornerShape(26.dp))
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = "😊", fontSize = 20.sp, modifier = Modifier.clickable { /* Emoji */ })
-                Spacer(Modifier.width(10.dp))
-
                 Box(modifier = Modifier.weight(1f)) {
                     if (inputText.isEmpty()) {
                         Text(
-                            text = "Type something...",
+                            text = "Xabar yozing...",
                             style = MaterialTheme.typography.bodyMedium.copy(color = TextMuted)
                         )
                     }
                     androidx.compose.foundation.text.BasicTextField(
                         value = inputText,
-                        onValueChange = { inputText = it },
+                        onValueChange = {
+                            inputText = it
+                            errorMessage = null
+                        },
                         modifier = Modifier.fillMaxWidth(),
+                        maxLines = 4,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                         textStyle = MaterialTheme.typography.bodyLarge.copy(color = TextPrimary)
                     )
                 }
-
-                Text(text = "📎", fontSize = 18.sp, modifier = Modifier.clickable { /* Attachment */ })
             }
 
             Spacer(Modifier.width(10.dp))
 
-            // Send Button (Orange)
             Box(
                 modifier = Modifier
                     .size(52.dp)
-                    .background(PrimaryOrange, CircleShape)
-                    .clickable {
-                        if (inputText.isNotBlank()) {
-                            repository.sendChatMessage(inputText)
-                            inputText = ""
+                    .background(
+                        if (inputText.isBlank() || isSending) PrimaryOrange.copy(alpha = 0.5f) else PrimaryOrange,
+                        CircleShape
+                    )
+                    .clickable(enabled = inputText.isNotBlank() && !isSending) {
+                        val text = inputText
+                        inputText = ""
+                        scope.launch {
+                            isSending = true
+                            repository.sendChatMessage(text)
+                                .onFailure {
+                                    errorMessage = it.message
+                                    inputText = text  // Yuborilmagan xabar yo'qolmaydi
+                                }
+                            isSending = false
                         }
                     },
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Filled.Send,
-                    contentDescription = "Send",
-                    tint = TextWhite,
-                    modifier = Modifier.size(22.dp)
-                )
+                if (isSending) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = TextWhite,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Filled.Send,
+                        contentDescription = "Send",
+                        tint = TextWhite,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
             }
         }
     }
@@ -361,8 +415,8 @@ fun MessageBubble(message: ChatMessage) {
                 Spacer(Modifier.width(4.dp))
                 Icon(
                     imageVector = Icons.Filled.Check,
-                    contentDescription = "Delivered",
-                    tint = PrimaryOrange,
+                    contentDescription = if (message.isRead) "O'qildi" else "Yuborildi",
+                    tint = if (message.isRead) PrimaryOrange else TextMuted,
                     modifier = Modifier.size(14.dp)
                 )
             }
@@ -372,7 +426,7 @@ fun MessageBubble(message: ChatMessage) {
 
 @Composable
 fun AudioCallScreen(
-    courierId: Long,
+    contactName: String,
     onEndCall: () -> Unit
 ) {
     var isMuted by remember { mutableStateOf(false) }
@@ -386,13 +440,15 @@ fun AudioCallScreen(
                     listOf(Color(0xFF323639), Color(0xFF141618))
                 )
             )
+            .statusBarsPadding()
+            .navigationBarsPadding()
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(Modifier.height(100.dp))
 
         Text(
-            text = "Stevano Clirover",
+            text = contactName,
             style = MaterialTheme.typography.headlineMedium.copy(
                 color = TextWhite,
                 fontWeight = FontWeight.Bold
@@ -401,7 +457,6 @@ fun AudioCallScreen(
 
         Spacer(Modifier.height(14.dp))
 
-        // Timer badge
         Surface(
             shape = RoundedCornerShape(14.dp),
             color = Color.White.copy(alpha = 0.15f)
@@ -417,7 +472,7 @@ fun AudioCallScreen(
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    text = "03:45",
+                    text = "Ulanmoqda...",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = TextWhite,
                         fontWeight = FontWeight.Bold
@@ -428,13 +483,11 @@ fun AudioCallScreen(
 
         Spacer(Modifier.weight(1f))
 
-        // Action Buttons Row (Mute, End Call, Speaker)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Mute Button
             Box(
                 modifier = Modifier
                     .size(60.dp)
@@ -450,7 +503,6 @@ fun AudioCallScreen(
                 )
             }
 
-            // End Call Red Button
             Box(
                 modifier = Modifier
                     .size(76.dp)
@@ -466,7 +518,6 @@ fun AudioCallScreen(
                 )
             }
 
-            // Speaker Button
             Box(
                 modifier = Modifier
                     .size(60.dp)
@@ -475,9 +526,9 @@ fun AudioCallScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Filled.VolumeUp,
+                    imageVector = if (isSpeakerOn) Icons.Filled.VolumeUp else Icons.Filled.VolumeUp,
                     contentDescription = "Speaker",
-                    tint = TextWhite,
+                    tint = if (isSpeakerOn) TextWhite else TextMuted,
                     modifier = Modifier.size(26.dp)
                 )
             }

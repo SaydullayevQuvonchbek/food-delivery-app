@@ -24,9 +24,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -231,6 +237,11 @@ fun AppInputField(
     }
 }
 
+/**
+ * OTP kiritish. Ilgari bu faqat chizilgan katakchalar edi - klaviatura ochilmagani uchun
+ * foydalanuvchi kodni umuman kirita olmasdi. Endi katakchalar ustida ko'rinmas
+ * BasicTextField turadi va bosilganda raqamli klaviatura ochiladi.
+ */
 @Composable
 fun OtpCodeInput(
     otpValue: String,
@@ -238,34 +249,63 @@ fun OtpCodeInput(
     modifier: Modifier = Modifier,
     length: Int = 4
 ) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        for (i in 0 until length) {
-            val char = otpValue.getOrNull(i)?.toString() ?: ""
-            val isFocused = otpValue.length == i
+    val focusRequester = remember { FocusRequester() }
+    var isFieldFocused by remember { mutableStateOf(false) }
 
-            Box(
-                modifier = Modifier
-                    .size(68.dp)
-                    .background(InputBackground, RoundedCornerShape(16.dp))
-                    .border(
-                        width = if (isFocused) 2.dp else 1.dp,
-                        color = if (isFocused) PrimaryOrange else BorderLight,
-                        shape = RoundedCornerShape(16.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = char,
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
+    LaunchedEffect(Unit) {
+        runCatching { focusRequester.requestFocus() }
+    }
+
+    Box(modifier = modifier.fillMaxWidth()) {
+        // Ko'rinadigan katakchalar
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            for (i in 0 until length) {
+                val char = otpValue.getOrNull(i)?.toString() ?: ""
+                val isActive = isFieldFocused && otpValue.length == i
+
+                Box(
+                    modifier = Modifier
+                        .size(68.dp)
+                        .background(InputBackground, RoundedCornerShape(16.dp))
+                        .border(
+                            width = if (isActive) 2.dp else 1.dp,
+                            color = if (isActive) PrimaryOrange else BorderLight,
+                            shape = RoundedCornerShape(16.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = char,
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
                     )
-                )
+                }
             }
         }
+
+        // Katakchalar ustidagi ko'rinmas kiritish maydoni - bosilganda klaviatura ochiladi
+        BasicTextField(
+            value = otpValue,
+            onValueChange = { input ->
+                onOtpChange(input.filter { it.isDigit() }.take(length))
+            },
+            modifier = Modifier
+                .matchParentSize()
+                .focusRequester(focusRequester)
+                .onFocusChanged { isFieldFocused = it.isFocused },
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.NumberPassword,
+                imeAction = ImeAction.Done
+            ),
+            singleLine = true,
+            cursorBrush = SolidColor(Color.Transparent),
+            textStyle = TextStyle(color = Color.Transparent)
+        )
     }
 }
 
@@ -307,7 +347,10 @@ fun AppHeaderBar(
         Text(
             text = title,
             style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
         )
 
         if (actionIcon != null && onActionClick != null) {

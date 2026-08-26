@@ -245,5 +245,30 @@ class DatabaseSeeder extends Seeder
             'text' => "Okay, I'm waiting 🙌",
             'is_read' => true
         ]);
+
+        // 9. Promo kodlar (mobil ilovadagi promo maydoni endi serverdan tekshiriladi)
+        \App\Models\Promotion::firstOrCreate(
+            ['code' => 'WELCOME10'],
+            [
+                'title' => 'Birinchi buyurtmaga 10% chegirma',
+                'discount_type' => 'percent',
+                'discount_value' => 10,
+                'min_order_amount' => 20000,
+                'valid_until' => now()->addYear(),
+                'is_active' => true
+            ]
+        );
+
+        \App\Models\Promotion::firstOrCreate(
+            ['code' => 'INSOF5000'],
+            [
+                'title' => "5 000 so'm chegirma",
+                'discount_type' => 'fixed',
+                'discount_value' => 5000,
+                'min_order_amount' => 30000,
+                'valid_until' => now()->addMonths(3),
+                'is_active' => true
+            ]
+        );
     }
 }

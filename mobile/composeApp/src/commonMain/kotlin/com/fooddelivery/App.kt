@@ -1,6 +1,7 @@
 package com.fooddelivery
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
@@ -32,11 +33,28 @@ fun App() {
     val isLoggedIn by repository.isLoggedIn.collectAsState()
     val hasSeenOnboarding by repository.hasSeenOnboarding.collectAsState()
 
-    // BackStack navigation list
     val backStack = remember {
         mutableStateListOf<Screen>(
-            if (isLoggedIn) Screen.Home else if (hasSeenOnboarding) Screen.Login else Screen.Onboarding
+            when {
+                isLoggedIn -> Screen.Home
+                hasSeenOnboarding -> Screen.Login
+                else -> Screen.Onboarding
+            }
         )
+    }
+
+    // Sessiya tugasa (masalan token eskirsa) foydalanuvchi kirish ekraniga qaytariladi
+    LaunchedEffect(isLoggedIn) {
+        if (!isLoggedIn && backStack.lastOrNull() !is Screen.Login &&
+            backStack.lastOrNull() !is Screen.Onboarding &&
+            backStack.lastOrNull() !is Screen.Register &&
+            backStack.lastOrNull() !is Screen.ForgotPassword &&
+            backStack.lastOrNull() !is Screen.OtpVerification &&
+            backStack.lastOrNull() !is Screen.ResetPassword
+        ) {
+            backStack.clear()
+            backStack.add(if (hasSeenOnboarding) Screen.Login else Screen.Onboarding)
+        }
     }
 
     val currentScreen = backStack.lastOrNull() ?: Screen.Home
@@ -56,7 +74,6 @@ fun App() {
         return false
     }
 
-    // Intercept hardware/gesture Back button
     BackHandler(enabled = backStack.size > 1) {
         popBack()
     }
@@ -101,7 +118,7 @@ fun App() {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(if (showBottomBar) paddingValues else androidx.compose.foundation.layout.PaddingValues())
+                    .padding(if (showBottomBar) paddingValues else PaddingValues())
             ) {
                 when (val screen = currentScreen) {
                     is Screen.Onboarding -> {
@@ -161,7 +178,8 @@ fun App() {
                             foodId = screen.foodId,
                             repository = repository,
                             onBackClick = { popBack() },
-                            onNavigateToCart = { navigateTo(Screen.Cart) }
+                            onNavigateToCart = { navigateTo(Screen.Cart) },
+                            onNavigateToFood = { foodId -> navigateTo(Screen.FoodDetail(foodId)) }
                         )
                     }
                     is Screen.Search -> {
@@ -182,34 +200,34 @@ fun App() {
                         PaymentAddressScreen(
                             repository = repository,
                             onBackClick = { popBack() },
-                            onOrderSuccess = { navigateTo(Screen.DeliveryTracking) }
+                            onOrderSuccess = { navigateTo(Screen.DeliveryTracking, clearStack = true) }
                         )
                     }
                     is Screen.DeliveryTracking -> {
                         DeliveryTrackingScreen(
                             repository = repository,
                             onBackClick = { navigateTo(Screen.Home, clearStack = true) },
-                            onNavigateToChat = { courierId: Long -> navigateTo(Screen.Chat(courierId)) },
-                            onNavigateToCall = { courierId: Long -> navigateTo(Screen.AudioCall(courierId)) }
+                            onNavigateToChat = { navigateTo(Screen.ChatList) },
+                            onNavigateToCall = { name -> navigateTo(Screen.AudioCall(name)) }
                         )
                     }
                     is Screen.ChatList -> {
                         ChatListScreen(
                             repository = repository,
-                            onNavigateToChat = { courierId: Long -> navigateTo(Screen.Chat(courierId)) }
+                            onNavigateToChat = { chatId -> navigateTo(Screen.Chat(chatId)) }
                         )
                     }
                     is Screen.Chat -> {
                         ChatScreen(
-                            courierId = screen.courierId,
+                            chatId = screen.chatId,
                             repository = repository,
                             onBackClick = { popBack() },
-                            onNavigateToCall = { courierId: Long -> navigateTo(Screen.AudioCall(courierId)) }
+                            onNavigateToCall = { name -> navigateTo(Screen.AudioCall(name)) }
                         )
                     }
                     is Screen.AudioCall -> {
                         AudioCallScreen(
-                            courierId = screen.courierId,
+                            contactName = screen.contactName,
                             onEndCall = { popBack() }
                         )
                     }

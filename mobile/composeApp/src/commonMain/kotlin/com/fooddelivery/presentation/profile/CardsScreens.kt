@@ -7,10 +7,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,12 +19,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fooddelivery.components.*
 import com.fooddelivery.data.repository.FoodDeliveryRepository
 import com.fooddelivery.domain.models.SavedPaymentCard
 import com.fooddelivery.theme.*
+import com.fooddelivery.util.formatCardNumber
+import com.fooddelivery.util.formatExpiry
+import com.fooddelivery.util.isValidExpiry
+import kotlinx.coroutines.launch
 
 @Composable
 fun CardsScreen(
@@ -33,25 +38,23 @@ fun CardsScreen(
     onNavigateToAddCard: () -> Unit
 ) {
     val cards by repository.savedCards.collectAsState()
-    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
-    var selectedCardIdToDelete by remember { mutableStateOf<Long?>(null) }
+    var cardToDelete by remember { mutableStateOf<SavedPaymentCard?>(null) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+
+    // Kartalar serverdan olinadi (ilgari ekranda uchta soxta karta ko'rinardi)
+    LaunchedEffect(Unit) { repository.loadCards() }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .background(BackgroundWhite)
+                .statusBarsPadding()
         ) {
             AppHeaderBar(
-                title = "Extra Card",
-                onBackClick = onBackClick,
-                actionIcon = Icons.Filled.Delete,
-                onActionClick = {
-                    cards.firstOrNull()?.let {
-                        selectedCardIdToDelete = it.id
-                        showDeleteConfirmDialog = true
-                    }
-                }
+                title = "Mening kartalarim",
+                onBackClick = onBackClick
             )
 
             Column(
@@ -60,29 +63,43 @@ fun CardsScreen(
                     .padding(horizontal = 20.dp)
                     .verticalScroll(rememberScrollState())
             ) {
-                // Virtual Orange Gradient Card Preview
-                VirtualCardPreview()
+                VirtualCardPreview(cards.firstOrNull { it.isDefault } ?: cards.firstOrNull())
 
                 Spacer(Modifier.height(26.dp))
 
                 Text(
-                    text = "Credit card",
+                    text = "Saqlangan kartalar",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                 )
 
                 Spacer(Modifier.height(14.dp))
 
-                // Saved Cards List
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    cards.forEach { card ->
-                        SavedCardItem(card = card)
+                if (cards.isEmpty()) {
+                    Text(
+                        text = "Hali karta qo'shilmagan",
+                        style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
+                    )
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        cards.forEach { card ->
+                            SavedCardItem(
+                                card = card,
+                                // Har bir kartaning o'z o'chirish tugmasi bor
+                                onDelete = { cardToDelete = card }
+                            )
+                        }
                     }
+                }
+
+                errorMessage?.let {
+                    Spacer(Modifier.height(12.dp))
+                    Text(text = it, style = MaterialTheme.typography.bodySmall.copy(color = DangerRed))
                 }
 
                 Spacer(Modifier.height(30.dp))
 
                 AppPrimaryButton(
-                    text = "Add New Card",
+                    text = "Yangi karta qo'shish",
                     onClick = onNavigateToAddCard
                 )
 
@@ -90,12 +107,16 @@ fun CardsScreen(
             }
         }
 
-        if (showDeleteConfirmDialog) {
+        cardToDelete?.let { card ->
             ConfirmDeleteCardDialog(
-                onDismiss = { showDeleteConfirmDialog = false },
+                lastFour = card.lastFour,
+                onDismiss = { cardToDelete = null },
                 onConfirm = {
-                    selectedCardIdToDelete?.let { repository.removePaymentCard(it) }
-                    showDeleteConfirmDialog = false
+                    scope.launch {
+                        repository.removePaymentCard(card.id)
+                            .onFailure { errorMessage = it.message }
+                        cardToDelete = null
+                    }
                 }
             )
         }
@@ -103,7 +124,7 @@ fun CardsScreen(
 }
 
 @Composable
-fun VirtualCardPreview() {
+fun VirtualCardPreview(card: SavedPaymentCard? = null) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -126,17 +147,17 @@ fun VirtualCardPreview() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "SoCard",
+                    text = "Food Delivery",
                     style = MaterialTheme.typography.titleLarge.copy(color = TextWhite, fontWeight = FontWeight.Bold)
                 )
                 Text(
-                    text = "VISA",
-                    style = MaterialTheme.typography.titleLarge.copy(color = TextWhite, fontWeight = FontWeight.ExtraBold)
+                    text = card?.cardType?.uppercase() ?: "CARD",
+                    style = MaterialTheme.typography.titleMedium.copy(color = TextWhite, fontWeight = FontWeight.ExtraBold)
                 )
             }
 
             Text(
-                text = "••••  ••••  ••••  8374",
+                text = "••••  ••••  ••••  ${card?.lastFour ?: "----"}",
                 style = MaterialTheme.typography.headlineSmall.copy(
                     color = TextWhite,
                     fontWeight = FontWeight.Bold,
@@ -149,14 +170,15 @@ fun VirtualCardPreview() {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Card holder name",
                         style = MaterialTheme.typography.bodySmall.copy(color = TextWhite.copy(alpha = 0.7f))
                     )
                     Text(
-                        text = "Albert Stevano Bajefski",
-                        style = MaterialTheme.typography.bodyMedium.copy(color = TextWhite, fontWeight = FontWeight.Bold)
+                        text = card?.cardHolderName?.ifBlank { "-" } ?: "-",
+                        style = MaterialTheme.typography.bodyMedium.copy(color = TextWhite, fontWeight = FontWeight.Bold),
+                        maxLines = 1
                     )
                 }
 
@@ -166,7 +188,7 @@ fun VirtualCardPreview() {
                         style = MaterialTheme.typography.bodySmall.copy(color = TextWhite.copy(alpha = 0.7f))
                     )
                     Text(
-                        text = "11/24",
+                        text = card?.expiryDate?.ifBlank { "--/--" } ?: "--/--",
                         style = MaterialTheme.typography.bodyMedium.copy(color = TextWhite, fontWeight = FontWeight.Bold)
                     )
                 }
@@ -176,7 +198,7 @@ fun VirtualCardPreview() {
 }
 
 @Composable
-fun SavedCardItem(card: SavedPaymentCard) {
+fun SavedCardItem(card: SavedPaymentCard, onDelete: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -187,7 +209,7 @@ fun SavedCardItem(card: SavedPaymentCard) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
             Box(
                 modifier = Modifier
                     .size(42.dp)
@@ -196,30 +218,64 @@ fun SavedCardItem(card: SavedPaymentCard) {
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = if (card.cardType == "MasterCard") "💳" else if (card.cardType == "Paypal") "🅿️" else "",
+                    text = when (card.cardType) {
+                        "Paypal" -> "🅿️"
+                        "Apple Pay" -> "🍎"
+                        else -> "💳"
+                    },
                     fontSize = 20.sp
                 )
             }
 
             Spacer(Modifier.width(14.dp))
 
-            Column {
-                Text(
-                    text = card.cardType,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                )
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = card.cardType,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                    if (card.isDefault) {
+                        Spacer(Modifier.width(8.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(PrimaryOrangeSoft)
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "Asosiy",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = PrimaryOrange,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                        }
+                    }
+                }
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = "**** **** ${card.lastFour}",
+                    text = "**** **** **** ${card.lastFour}  •  ${card.expiryDate}",
                     style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
                 )
             }
         }
+
+        Icon(
+            imageVector = Icons.Filled.Delete,
+            contentDescription = "O'chirish",
+            tint = DangerRed.copy(alpha = 0.8f),
+            modifier = Modifier
+                .size(22.dp)
+                .clickable { onDelete() }
+        )
     }
 }
 
 @Composable
 fun ConfirmDeleteCardDialog(
+    lastFour: String,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
 ) {
@@ -241,12 +297,12 @@ fun ConfirmDeleteCardDialog(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "Confirm Delete",
+                    text = "Kartani o'chirish",
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = "Are you sure to delete this card?",
+                    text = "**** $lastFour kartasini o'chirmoqchimisiz?",
                     style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
                 )
 
@@ -256,21 +312,21 @@ fun ConfirmDeleteCardDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Button(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f).height(48.dp),
-                        shape = ButtonShape,
-                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryOrange)
-                    ) {
-                        Text(text = "No, I won't", style = MaterialTheme.typography.bodyMedium.copy(color = TextWhite, fontWeight = FontWeight.Bold))
-                    }
-
                     OutlinedButton(
-                        onClick = onConfirm,
+                        onClick = onDismiss,
                         modifier = Modifier.weight(1f).height(48.dp),
                         shape = ButtonShape
                     ) {
-                        Text(text = "Yes, Of course", style = MaterialTheme.typography.bodyMedium.copy(color = TextPrimary))
+                        Text(text = "Bekor qilish", style = MaterialTheme.typography.bodyMedium.copy(color = TextPrimary))
+                    }
+
+                    Button(
+                        onClick = onConfirm,
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = ButtonShape,
+                        colors = ButtonDefaults.buttonColors(containerColor = DangerRed)
+                    ) {
+                        Text(text = "O'chirish", style = MaterialTheme.typography.bodyMedium.copy(color = TextWhite, fontWeight = FontWeight.Bold))
                     }
                 }
             }
@@ -283,19 +339,26 @@ fun AddCardScreen(
     repository: FoodDeliveryRepository,
     onBackClick: () -> Unit
 ) {
-    var cardName by remember { mutableStateOf("Albert Stevano Bajefski") }
-    var cardNumber by remember { mutableStateOf("3822 8293 8292 2356") }
-    var expiryDate by remember { mutableStateOf("11/24") }
-    var cvv by remember { mutableStateOf("531") }
-    var billingAddress by remember { mutableStateOf("New York City") }
+    // Maydonlar bo'sh boshlanadi (ilgari soxta karta ma'lumotlari oldindan to'ldirilgan edi)
+    var cardName by remember { mutableStateOf("") }
+    var cardNumber by remember { mutableStateOf("") }
+    var expiryDate by remember { mutableStateOf("") }
+    var isSaving by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+
+    val digitsOnly = cardNumber.filter { it.isDigit() }
+    val isFormValid = cardName.trim().length >= 3 && digitsOnly.length in 12..19 && isValidExpiry(expiryDate)
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(BackgroundWhite)
+            .statusBarsPadding()
+            .imePadding()
     ) {
         AppHeaderBar(
-            title = "Extra Card",
+            title = "Karta qo'shish",
             onBackClick = onBackClick
         )
 
@@ -305,68 +368,87 @@ fun AddCardScreen(
                 .padding(horizontal = 20.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            VirtualCardPreview()
+            VirtualCardPreview(
+                SavedPaymentCard(
+                    cardHolderName = cardName,
+                    lastFour = digitsOnly.takeLast(4),
+                    expiryDate = expiryDate
+                )
+            )
 
             Spacer(Modifier.height(24.dp))
 
             AppInputField(
                 value = cardName,
-                onValueChange = { cardName = it },
-                label = "Name on Card"
+                onValueChange = {
+                    cardName = it
+                    errorMessage = null
+                },
+                label = "Kartadagi ism",
+                placeholder = "ISM FAMILIYA"
             )
 
             Spacer(Modifier.height(16.dp))
 
             AppInputField(
                 value = cardNumber,
-                onValueChange = { cardNumber = it },
-                label = "Card Number"
+                onValueChange = {
+                    cardNumber = formatCardNumber(it)
+                    errorMessage = null
+                },
+                label = "Karta raqami",
+                placeholder = "8600 1234 5678 9012",
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                isError = digitsOnly.isNotEmpty() && digitsOnly.length < 12,
+                errorMessage = "Karta raqami to'liq emas"
             )
-
-            Spacer(Modifier.height(16.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                AppInputField(
-                    value = expiryDate,
-                    onValueChange = { expiryDate = it },
-                    label = "Expiry Date",
-                    modifier = Modifier.weight(1f)
-                )
-
-                AppInputField(
-                    value = cvv,
-                    onValueChange = { cvv = it },
-                    label = "3-Digit CVV",
-                    modifier = Modifier.weight(1f)
-                )
-            }
 
             Spacer(Modifier.height(16.dp))
 
             AppInputField(
-                value = billingAddress,
-                onValueChange = { billingAddress = it },
-                label = "Billing Address"
+                value = expiryDate,
+                onValueChange = {
+                    expiryDate = formatExpiry(it)
+                    errorMessage = null
+                },
+                label = "Amal qilish muddati (MM/YY)",
+                placeholder = "12/28",
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                isError = expiryDate.length == 5 && !isValidExpiry(expiryDate),
+                errorMessage = "Muddat MM/YY ko'rinishida bo'lsin"
             )
+
+            Spacer(Modifier.height(12.dp))
+
+            Text(
+                text = "🔒 Xavfsizlik uchun karta raqami va CVV saqlanmaydi - faqat oxirgi 4 raqam.",
+                style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
+            )
+
+            errorMessage?.let {
+                Spacer(Modifier.height(12.dp))
+                Text(text = it, style = MaterialTheme.typography.bodySmall.copy(color = DangerRed))
+            }
 
             Spacer(Modifier.height(30.dp))
 
             AppPrimaryButton(
-                text = "Save Card",
+                text = "Kartani saqlash",
+                enabled = isFormValid,
+                isLoading = isSaving,
                 onClick = {
-                    repository.addPaymentCard(
-                        SavedPaymentCard(
-                            cardHolderName = cardName,
-                            cardNumber = cardNumber,
-                            lastFour = if (cardNumber.length >= 4) cardNumber.takeLast(4) else "1234",
-                            expiryDate = expiryDate,
-                            cvv = cvv
+                    scope.launch {
+                        isSaving = true
+                        errorMessage = null
+                        val result = repository.addPaymentCard(
+                            holderName = cardName,
+                            cardNumber = digitsOnly,
+                            expiryDate = expiryDate
                         )
-                    )
-                    onBackClick()
+                        isSaving = false
+                        result.onSuccess { onBackClick() }
+                            .onFailure { errorMessage = it.message }
+                    }
                 }
             )
 

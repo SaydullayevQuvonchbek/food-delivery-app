@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import com.fooddelivery.components.*
 import com.fooddelivery.data.repository.FoodDeliveryRepository
 import com.fooddelivery.domain.models.Food
+import com.fooddelivery.util.formatPrice
 import com.fooddelivery.theme.*
 
 @Composable
@@ -36,12 +37,32 @@ fun FoodDetailScreen(
     foodId: Long,
     repository: FoodDeliveryRepository,
     onBackClick: () -> Unit,
-    onNavigateToCart: () -> Unit
+    onNavigateToCart: () -> Unit,
+    onNavigateToFood: (Long) -> Unit = {}
 ) {
-    val foods by repository.foods.collectAsState()
-    val food = foods.find { it.id == foodId } ?: foods.firstOrNull() ?: Food(name = "Food")
-    var quantity by remember { mutableStateOf(1) }
-    var currentSlide by remember { mutableStateOf(0) }
+    val allFoods by repository.allFoods.collectAsState()
+    // Ilgari faqat joriy kategoriya ro'yxatidan qidirilardi va topilmasa BOSHQA taom ko'rsatilardi
+    val food = allFoods.find { it.id == foodId }
+    var quantity by remember(foodId) { mutableStateOf(1) }
+
+    if (food == null) {
+        Column(
+            modifier = Modifier.fillMaxSize().background(BackgroundWhite).statusBarsPadding(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            AppHeaderBar(title = "Taom", onBackClick = onBackClick)
+            Spacer(Modifier.height(60.dp))
+            Text(text = "🍽", fontSize = 44.sp)
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = "Bu taom topilmadi yoki mavjud emas",
+                style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
+            )
+        }
+        return
+    }
+
+    val recommended = remember(food.id, allFoods) { repository.recommendedFor(food) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -60,7 +81,7 @@ fun FoodDetailScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "🍔",
+                    text = categoryEmoji(food.categoryId),
                     fontSize = 110.sp
                 )
 
@@ -144,7 +165,7 @@ fun FoodDetailScreen(
                 Spacer(Modifier.height(6.dp))
 
                 Text(
-                    text = "$ ${food.price.toInt()}",
+                    text = formatPrice(food.price),
                     style = MaterialTheme.typography.headlineSmall.copy(
                         color = PrimaryOrange,
                         fontWeight = FontWeight.Bold
@@ -234,12 +255,13 @@ fun FoodDetailScreen(
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    items(foods.filterNot { it.id == food.id }) { recFood ->
+                    items(recommended, key = { it.id }) { recFood ->
                         Box(
                             modifier = Modifier
                                 .width(150.dp)
                                 .clip(RoundedCornerShape(16.dp))
                                 .background(SurfaceLight)
+                                .clickable { onNavigateToFood(recFood.id) }
                                 .padding(10.dp)
                         ) {
                             Column {
@@ -251,7 +273,7 @@ fun FoodDetailScreen(
                                         .background(Color(0xFFE8E0D4)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text(text = "🍔", fontSize = 36.sp)
+                                    Text(text = categoryEmoji(recFood.categoryId), fontSize = 36.sp)
                                 }
                                 Spacer(Modifier.height(6.dp))
                                 Text(
@@ -261,7 +283,7 @@ fun FoodDetailScreen(
                                 )
                                 Spacer(Modifier.height(2.dp))
                                 Text(
-                                    text = "$ ${recFood.price.toInt()}",
+                                    text = formatPrice(recFood.price),
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         color = PrimaryOrange,
                                         fontWeight = FontWeight.Bold
@@ -310,4 +332,13 @@ fun FoodDetailScreen(
             }
         }
     }
+}
+
+/** Rasm hali yuklanmagan taomlar uchun kategoriya emojisi */
+fun categoryEmoji(categoryId: Long): String = when (categoryId) {
+    1L -> "🍔"
+    2L -> "🌮"
+    3L -> "🥤"
+    4L -> "🍕"
+    else -> "🍽"
 }

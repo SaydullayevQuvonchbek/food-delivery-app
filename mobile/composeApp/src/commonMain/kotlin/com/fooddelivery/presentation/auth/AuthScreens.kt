@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -22,13 +23,41 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fooddelivery.components.*
 import com.fooddelivery.data.repository.FoodDeliveryRepository
 import com.fooddelivery.theme.*
+import com.fooddelivery.util.isValidEmail
 import kotlinx.coroutines.launch
+
+@Composable
+private fun ErrorBanner(message: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = DangerRed.copy(alpha = 0.1f)
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Filled.ErrorOutline,
+                contentDescription = null,
+                tint = DangerRed,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall.copy(color = DangerRed)
+            )
+        }
+    }
+}
 
 @Composable
 fun LoginScreen(
@@ -37,8 +66,8 @@ fun LoginScreen(
     onNavigateToRegister: () -> Unit,
     onNavigateToForgotPassword: () -> Unit
 ) {
-    var email by remember { mutableStateOf("Albertstevano@gmail.com") }
-    var password by remember { mutableStateOf("password123") }
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
@@ -49,6 +78,7 @@ fun LoginScreen(
             .background(BackgroundWhite)
             .statusBarsPadding()
             .navigationBarsPadding()
+            .imePadding()
             .padding(horizontal = 24.dp)
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.Start
@@ -68,30 +98,9 @@ fun LoginScreen(
             style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
         )
 
-        if (errorMessage != null) {
+        errorMessage?.let {
             Spacer(Modifier.height(16.dp))
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                color = DangerRed.copy(alpha = 0.1f)
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.ErrorOutline,
-                        contentDescription = null,
-                        tint = DangerRed,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = errorMessage ?: "",
-                        style = MaterialTheme.typography.bodySmall.copy(color = DangerRed)
-                    )
-                }
-            }
+            ErrorBanner(it)
         }
 
         Spacer(Modifier.height(24.dp))
@@ -103,7 +112,8 @@ fun LoginScreen(
                 errorMessage = null
             },
             label = "Email Address",
-            placeholder = "Enter Email"
+            placeholder = "Enter Email",
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
         )
 
         Spacer(Modifier.height(18.dp))
@@ -142,8 +152,12 @@ fun LoginScreen(
             isLoading = isLoading,
             onClick = {
                 scope.launch {
-                    if (email.isBlank()) {
-                        errorMessage = "Iltimos, email manzilini kiriting"
+                    if (!isValidEmail(email)) {
+                        errorMessage = "To'g'ri email manzil kiriting"
+                        return@launch
+                    }
+                    if (password.isBlank()) {
+                        errorMessage = "Parolni kiriting"
                         return@launch
                     }
                     isLoading = true
@@ -159,41 +173,12 @@ fun LoginScreen(
             }
         )
 
-        Spacer(Modifier.height(14.dp))
-
-        // Demo Fast-Track button
-        OutlinedButton(
-            onClick = {
-                scope.launch {
-                    isLoading = true
-                    val result = repository.login("Albertstevano@gmail.com", "password123")
-                    isLoading = false
-                    result.onSuccess { onLoginSuccess() }
-                }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
-            shape = RoundedCornerShape(16.dp),
-            border = androidx.compose.foundation.BorderStroke(1.dp, PrimaryOrangeLight)
-        ) {
-            Text(
-                text = "⚡ Demo Fast-Track Sign In",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = PrimaryOrange,
-                    fontWeight = FontWeight.Bold
-                )
-            )
-        }
-
         Spacer(Modifier.height(24.dp))
 
-        // Social Logins
         SocialLoginSection()
 
         Spacer(Modifier.height(24.dp))
 
-        // Footer Register Link
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,
@@ -225,8 +210,9 @@ fun RegisterScreen(
 ) {
     var email by remember { mutableStateOf("") }
     var userName by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var termsAgreed by remember { mutableStateOf(true) }
+    var termsAgreed by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
@@ -237,6 +223,7 @@ fun RegisterScreen(
             .background(BackgroundWhite)
             .statusBarsPadding()
             .navigationBarsPadding()
+            .imePadding()
             .padding(horizontal = 24.dp)
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.Start
@@ -256,30 +243,9 @@ fun RegisterScreen(
             style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
         )
 
-        if (errorMessage != null) {
+        errorMessage?.let {
             Spacer(Modifier.height(16.dp))
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                color = DangerRed.copy(alpha = 0.1f)
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.ErrorOutline,
-                        contentDescription = null,
-                        tint = DangerRed,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = errorMessage ?: "",
-                        style = MaterialTheme.typography.bodySmall.copy(color = DangerRed)
-                    )
-                }
-            }
+            ErrorBanner(it)
         }
 
         Spacer(Modifier.height(24.dp))
@@ -291,7 +257,8 @@ fun RegisterScreen(
                 errorMessage = null
             },
             label = "Email Address",
-            placeholder = "Enter Email"
+            placeholder = "Enter Email",
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
         )
 
         Spacer(Modifier.height(18.dp))
@@ -302,8 +269,21 @@ fun RegisterScreen(
                 userName = it
                 errorMessage = null
             },
-            label = "User Name",
-            placeholder = "User Name"
+            label = "Full Name",
+            placeholder = "Ism Familiya"
+        )
+
+        Spacer(Modifier.height(18.dp))
+
+        AppInputField(
+            value = phone,
+            onValueChange = {
+                phone = it
+                errorMessage = null
+            },
+            label = "Phone (ixtiyoriy)",
+            placeholder = "+998 90 123 45 67",
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
         )
 
         Spacer(Modifier.height(18.dp))
@@ -315,13 +295,12 @@ fun RegisterScreen(
                 errorMessage = null
             },
             label = "Password",
-            placeholder = "Password",
+            placeholder = "Kamida 8 ta belgi",
             isPassword = true
         )
 
         Spacer(Modifier.height(16.dp))
 
-        // Terms Checkbox
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -368,21 +347,22 @@ fun RegisterScreen(
             isLoading = isLoading,
             onClick = {
                 scope.launch {
-                    if (email.isBlank() || !email.contains("@")) {
+                    if (!isValidEmail(email)) {
                         errorMessage = "To'g'ri email kiriting"
                         return@launch
                     }
-                    if (userName.isBlank()) {
-                        errorMessage = "Ismingizni kiriting"
+                    if (userName.trim().length < 3) {
+                        errorMessage = "To'liq ismingizni kiriting"
                         return@launch
                     }
-                    if (password.length < 6) {
-                        errorMessage = "Parol kamida 6 ta belgidan iborat bo'lsin"
+                    // Server minimal 8 ta belgi talab qiladi - shuning uchun bu yerda ham 8
+                    if (password.length < 8) {
+                        errorMessage = "Parol kamida 8 ta belgidan iborat bo'lsin"
                         return@launch
                     }
                     isLoading = true
                     errorMessage = null
-                    val result = repository.register(userName.trim(), email.trim(), password)
+                    val result = repository.register(userName.trim(), email.trim(), password, phone.trim())
                     isLoading = false
                     result.onSuccess {
                         onRegisterSuccess()
@@ -428,9 +408,11 @@ fun ForgotPasswordScreen(
     onBackClick: () -> Unit,
     onContinueToOtp: () -> Unit
 ) {
-    var email by remember { mutableStateOf("Albertstevano@gmail.com") }
+    var email by remember { mutableStateOf("") }
     var selectedMethod by remember { mutableStateOf("email") }
     var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var infoMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
     Column(
@@ -439,6 +421,7 @@ fun ForgotPasswordScreen(
             .background(BackgroundWhite)
             .statusBarsPadding()
             .navigationBarsPadding()
+            .imePadding()
     ) {
         AppHeaderBar(
             title = "",
@@ -449,6 +432,7 @@ fun ForgotPasswordScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 24.dp)
+                .verticalScroll(rememberScrollState())
         ) {
             Text(
                 text = "Forgot password?",
@@ -456,43 +440,78 @@ fun ForgotPasswordScreen(
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "Select which contact details should we use to reset your password",
+                text = "Hisobingiz email manzilini kiriting - tasdiqlash kodini yuboramiz",
                 style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
             )
 
-            Spacer(Modifier.height(32.dp))
+            Spacer(Modifier.height(24.dp))
 
-            // WhatsApp Option Card
-            OptionCard(
-                icon = Icons.Filled.Phone,
-                title = "Send via WhatsApp",
-                value = "+12 8347 2838 28",
-                isSelected = selectedMethod == "whatsapp",
-                onClick = { selectedMethod = "whatsapp" }
+            // Email endi tahrirlanadi: ilgari kod qat'iy demo hisobga yuborilardi
+            AppInputField(
+                value = email,
+                onValueChange = {
+                    email = it
+                    errorMessage = null
+                },
+                label = "Email Address",
+                placeholder = "Enter Email",
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
             )
 
-            Spacer(Modifier.height(16.dp))
+            errorMessage?.let {
+                Spacer(Modifier.height(14.dp))
+                ErrorBanner(it)
+            }
 
-            // Email Option Card
+            infoMessage?.let {
+                Spacer(Modifier.height(14.dp))
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall.copy(color = SuccessGreen)
+                )
+            }
+
+            Spacer(Modifier.height(24.dp))
+
             OptionCard(
                 icon = Icons.Filled.Email,
                 title = "Send via Email",
-                value = "Albertstevano@gmail.com",
+                value = email.ifBlank { "Email manzilingiz" },
                 isSelected = selectedMethod == "email",
                 onClick = { selectedMethod = "email" }
             )
 
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(16.dp))
+
+            OptionCard(
+                icon = Icons.Filled.Phone,
+                title = "Send via WhatsApp",
+                value = "Tez orada",
+                isSelected = selectedMethod == "whatsapp",
+                onClick = { /* Hali qo'llab-quvvatlanmaydi */ }
+            )
+
+            Spacer(Modifier.height(40.dp))
 
             AppPrimaryButton(
                 text = "Continue",
                 isLoading = isLoading,
                 onClick = {
                     scope.launch {
+                        if (!isValidEmail(email)) {
+                            errorMessage = "To'g'ri email manzil kiriting"
+                            return@launch
+                        }
                         isLoading = true
-                        repository.forgotPassword(email)
+                        errorMessage = null
+                        val result = repository.forgotPassword(email.trim())
                         isLoading = false
-                        onContinueToOtp()
+                        result.onSuccess {
+                            infoMessage = it
+                            onContinueToOtp()
+                        }.onFailure { err ->
+                            errorMessage = err.message
+                        }
                     }
                 }
             )
@@ -551,7 +570,8 @@ private fun OptionCard(
                 Spacer(Modifier.height(2.dp))
                 Text(
                     text = value,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    maxLines = 1
                 )
             }
 
@@ -573,10 +593,11 @@ fun OtpVerificationScreen(
     onBackClick: () -> Unit,
     onVerified: () -> Unit
 ) {
-    var otpCode by remember { mutableStateOf("9627") }
+    var otpCode by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val maskedEmail = remember { maskEmail(repository.resetEmail) }
 
     Column(
         modifier = Modifier
@@ -584,6 +605,7 @@ fun OtpVerificationScreen(
             .background(BackgroundWhite)
             .statusBarsPadding()
             .navigationBarsPadding()
+            .imePadding()
     ) {
         AppHeaderBar(
             title = "OTP",
@@ -604,30 +626,29 @@ fun OtpVerificationScreen(
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "Enter the verification code we send you on:\nAlberts******@gmail.com\n(Demo Code: 9627)",
+                text = "Tasdiqlash kodini kiriting:\n$maskedEmail",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = TextSecondary,
                     textAlign = TextAlign.Center
                 )
             )
 
-            if (errorMessage != null) {
+            errorMessage?.let {
                 Spacer(Modifier.height(14.dp))
                 Text(
-                    text = errorMessage ?: "",
+                    text = it,
                     style = MaterialTheme.typography.bodySmall.copy(color = DangerRed)
                 )
             }
 
             Spacer(Modifier.height(30.dp))
 
+            // Endi kodni haqiqatan ham kiritish mumkin (ilgari faqat ko'rinish edi)
             OtpCodeInput(
                 otpValue = otpCode,
                 onOtpChange = {
-                    if (it.length <= 4) {
-                        otpCode = it
-                        errorMessage = null
-                    }
+                    otpCode = it.filter { ch -> ch.isDigit() }.take(4)
+                    errorMessage = null
                 }
             )
 
@@ -649,7 +670,8 @@ fun OtpVerificationScreen(
                     ),
                     modifier = Modifier.clickable {
                         scope.launch {
-                            repository.forgotPassword("Albertstevano@gmail.com")
+                            repository.forgotPassword(repository.resetEmail)
+                                .onFailure { errorMessage = it.message }
                         }
                     }
                 )
@@ -660,11 +682,12 @@ fun OtpVerificationScreen(
             AppPrimaryButton(
                 text = "Continue",
                 isLoading = isLoading,
+                enabled = otpCode.length == 4,
                 onClick = {
                     scope.launch {
                         isLoading = true
                         errorMessage = null
-                        val res = repository.verifyOtp("Albertstevano@gmail.com", otpCode)
+                        val res = repository.verifyOtp(otpCode)
                         isLoading = false
                         res.onSuccess {
                             onVerified()
@@ -680,16 +703,25 @@ fun OtpVerificationScreen(
     }
 }
 
+private fun maskEmail(email: String): String {
+    if (email.isBlank()) return "email manzilingiz"
+    val at = email.indexOf('@')
+    if (at <= 1) return email
+    val visible = email.take(minOf(3, at))
+    return visible + "*".repeat(maxOf(1, at - visible.length)) + email.substring(at)
+}
+
 @Composable
 fun ResetPasswordScreen(
     repository: FoodDeliveryRepository,
     onBackClick: () -> Unit,
     onSuccess: () -> Unit
 ) {
-    var newPassword by remember { mutableStateOf("newpass123") }
-    var confirmPassword by remember { mutableStateOf("newpass123") }
+    var newPassword by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
     var showSuccessDialog by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -699,6 +731,7 @@ fun ResetPasswordScreen(
                 .background(BackgroundWhite)
                 .statusBarsPadding()
                 .navigationBarsPadding()
+                .imePadding()
         ) {
             AppHeaderBar(
                 title = "Reset Password",
@@ -709,6 +742,7 @@ fun ResetPasswordScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 24.dp)
+                    .verticalScroll(rememberScrollState())
             ) {
                 Spacer(Modifier.height(20.dp))
 
@@ -718,21 +752,29 @@ fun ResetPasswordScreen(
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = "Your new password must be different from the previously used password",
+                    text = "Yangi parol avvalgisidan farq qilishi kerak",
                     style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
                 )
+
+                errorMessage?.let {
+                    Spacer(Modifier.height(16.dp))
+                    ErrorBanner(it)
+                }
 
                 Spacer(Modifier.height(32.dp))
 
                 AppInputField(
                     value = newPassword,
-                    onValueChange = { newPassword = it },
+                    onValueChange = {
+                        newPassword = it
+                        errorMessage = null
+                    },
                     label = "New Password",
                     placeholder = "Enter new password",
                     isPassword = true
                 )
                 Text(
-                    text = "Must be at least 8 character",
+                    text = "Kamida 8 ta belgi",
                     style = MaterialTheme.typography.bodySmall.copy(color = TextMuted),
                     modifier = Modifier.padding(start = 4.dp, top = 4.dp)
                 )
@@ -741,28 +783,41 @@ fun ResetPasswordScreen(
 
                 AppInputField(
                     value = confirmPassword,
-                    onValueChange = { confirmPassword = it },
+                    onValueChange = {
+                        confirmPassword = it
+                        errorMessage = null
+                    },
                     label = "Confirm Password",
                     placeholder = "Re-enter new password",
-                    isPassword = true
-                )
-                Text(
-                    text = "Both password must match",
-                    style = MaterialTheme.typography.bodySmall.copy(color = TextMuted),
-                    modifier = Modifier.padding(start = 4.dp, top = 4.dp)
+                    isPassword = true,
+                    isError = confirmPassword.isNotEmpty() && confirmPassword != newPassword,
+                    errorMessage = "Parollar mos kelmadi"
                 )
 
-                Spacer(Modifier.weight(1f))
+                Spacer(Modifier.height(40.dp))
 
                 AppPrimaryButton(
                     text = "Verify Account",
                     isLoading = isLoading,
                     onClick = {
                         scope.launch {
+                            if (newPassword.length < 8) {
+                                errorMessage = "Parol kamida 8 ta belgidan iborat bo'lsin"
+                                return@launch
+                            }
+                            if (newPassword != confirmPassword) {
+                                errorMessage = "Parollar mos kelmadi"
+                                return@launch
+                            }
                             isLoading = true
-                            repository.resetPassword("Albertstevano@gmail.com", newPassword)
+                            errorMessage = null
+                            val result = repository.resetPassword(newPassword)
                             isLoading = false
-                            showSuccessDialog = true
+                            result.onSuccess {
+                                showSuccessDialog = true
+                            }.onFailure { err ->
+                                errorMessage = err.message
+                            }
                         }
                     }
                 )
@@ -812,7 +867,6 @@ fun PasswordChangedModal(
                 )
                 Spacer(Modifier.height(24.dp))
 
-                // Success Icon with Shield
                 Box(
                     modifier = Modifier
                         .size(80.dp)
@@ -838,7 +892,7 @@ fun PasswordChangedModal(
                 Spacer(Modifier.height(8.dp))
 
                 Text(
-                    text = "Password changed successfully, you can login again with a new password",
+                    text = "Parol muvaffaqiyatli o'zgartirildi. Endi yangi parol bilan kirishingiz mumkin.",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = TextSecondary,
                         textAlign = TextAlign.Center
@@ -848,7 +902,7 @@ fun PasswordChangedModal(
                 Spacer(Modifier.height(28.dp))
 
                 AppPrimaryButton(
-                    text = "Verify Account",
+                    text = "Sign In",
                     onClick = onConfirm
                 )
             }
@@ -879,7 +933,7 @@ private fun SocialLoginSection() {
         ) {
             SocialIconButton(text = "G", color = GoogleRed)
             SocialIconButton(text = "f", color = FacebookBlue)
-            SocialIconButton(text = "", color = AppleBlack)
+            SocialIconButton(text = "", color = AppleBlack)
         }
     }
 }
@@ -889,21 +943,32 @@ private fun SocialIconButton(
     text: String,
     color: Color
 ) {
-    Box(
-        modifier = Modifier
-            .size(50.dp)
-            .background(SurfaceLight, CircleShape)
-            .border(1.dp, BorderLight, CircleShape)
-            .clickable { /* Social Auth */ },
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = text,
-            style = TextStyle(
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                color = color
+    var showHint by remember { mutableStateOf(false) }
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            modifier = Modifier
+                .size(50.dp)
+                .background(SurfaceLight, CircleShape)
+                .border(1.dp, BorderLight, CircleShape)
+                .clickable { showHint = true },
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = text,
+                style = TextStyle(
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = color
+                )
             )
-        )
+        }
+        if (showHint) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "Tez orada",
+                style = MaterialTheme.typography.bodySmall.copy(color = TextMuted, fontSize = 10.sp)
+            )
+        }
     }
 }
