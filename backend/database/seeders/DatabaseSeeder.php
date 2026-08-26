@@ -17,6 +17,18 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        // 0. Create Super Admin
+        User::firstOrCreate(
+            ['email' => 'admin@insof.uz'],
+            [
+                'full_name' => 'Kompaniya Rahbari',
+                'phone' => '+998 71 200 00 00',
+                'password' => Hash::make('admin12345'),
+                'role' => 'admin',
+                'status' => 'active'
+            ]
+        );
+
         // 1. Create Customer
         $user = User::create([
             'full_name' => 'Albert Stevano Bajefski',
