@@ -319,9 +319,9 @@ fun PersonalDataScreen(
 ) {
     val user by repository.currentUser.collectAsState()
     var fullName by remember { mutableStateOf(user.fullName) }
-    var dob by remember { mutableStateOf(user.dateOfBirth) }
+    var dob by remember { mutableStateOf(user.dateOfBirth ?: "") }
     var gender by remember { mutableStateOf(user.gender) }
-    var phone by remember { mutableStateOf(user.phone) }
+    var phone by remember { mutableStateOf(user.phone ?: "") }
     var email by remember { mutableStateOf(user.email) }
 
     Column(

@@ -20,7 +20,12 @@ class FoodDeliveryRepository {
 
     private val httpClient = createHttpClient()
     private val scope = CoroutineScope(Dispatchers.Default)
-    private val jsonParser = Json { ignoreUnknownKeys = true; isLenient = true }
+    private val jsonParser = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+        coerceInputValues = true
+        explicitNulls = false
+    }
 
     private val defaultCategories = listOf(
         Category(1, "Burger", "🍔", isSelected = true),

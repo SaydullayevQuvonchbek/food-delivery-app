@@ -30,36 +30,44 @@ fun OnboardingScreen(
 
     val slides = listOf(
         Pair("We serve\nincomparable\ndelicacies", "All the best restaurants with their top menu waiting for you, they can't wait for your order!!"),
-        Pair("We serve\nincomparable\ndelicacies", "Fast and safe delivery right to your doorsteps with live courier tracking anytime!!"),
-        Pair("We serve\nincomparable\ndelicacies", "Enjoy delicious meals and special discounts tailored just for your taste!!")
+        Pair("Fast & Safe\nDelivery\nService", "Fast and safe delivery right to your doorsteps with live courier tracking anytime!!"),
+        Pair("Delicious Meals\n& Special\nDiscounts", "Enjoy delicious meals and special discounts tailored just for your taste!!")
     )
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF202020))
+            .background(Color(0xFF1E1E1E))
     ) {
-        // Mock Hero Image Background with Gradient Overlay
+        // Hero Image Background with Gradient Overlay
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.65f)
+                .fillMaxHeight(0.62f)
+                .statusBarsPadding()
                 .background(
                     Brush.verticalGradient(
-                        listOf(Color(0xFF4A3525), Color(0xFF1E1A17))
+                        listOf(Color(0xFF4A3525), Color(0xFF1E1E1E))
                     )
                 ),
             contentAlignment = Alignment.Center
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(bottom = 40.dp)
+            ) {
                 Text(
-                    text = "🍔",
-                    fontSize = 120.sp
+                    text = when(currentPage) {
+                        0 -> "🍔"
+                        1 -> "🛵"
+                        else -> "🍕"
+                    },
+                    fontSize = 110.sp
                 )
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(10.dp))
                 Text(
                     text = "Premium Fast Food",
-                    style = MaterialTheme.typography.titleMedium.copy(color = TextWhite.copy(alpha = 0.8f))
+                    style = MaterialTheme.typography.titleMedium.copy(color = TextWhite.copy(alpha = 0.85f))
                 )
             }
         }
@@ -69,7 +77,8 @@ fun OnboardingScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
-                .padding(16.dp),
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             shape = RoundedCornerShape(36.dp),
             colors = CardDefaults.cardColors(containerColor = PrimaryOrange),
             elevation = CardDefaults.cardElevation(8.dp)
@@ -77,7 +86,7 @@ fun OnboardingScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 28.dp),
+                    .padding(horizontal = 24.dp, vertical = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 AnimatedContent(targetState = currentPage, label = "slide_text") { page ->
@@ -88,22 +97,24 @@ fun OnboardingScreen(
                                 color = TextWhite,
                                 fontWeight = FontWeight.ExtraBold,
                                 textAlign = TextAlign.Center,
-                                lineHeight = 30.sp
+                                lineHeight = 28.sp,
+                                fontSize = 24.sp
                             )
                         )
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(10.dp))
                         Text(
                             text = slides[page].second,
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 color = TextWhite.copy(alpha = 0.9f),
                                 textAlign = TextAlign.Center,
-                                lineHeight = 18.sp
+                                lineHeight = 18.sp,
+                                fontSize = 14.sp
                             )
                         )
                     }
                 }
 
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(20.dp))
 
                 // Dots indicator
                 Row(
@@ -121,7 +132,7 @@ fun OnboardingScreen(
                     }
                 }
 
-                Spacer(Modifier.height(28.dp))
+                Spacer(Modifier.height(22.dp))
 
                 // Navigation Row
                 if (currentPage < 2) {
@@ -133,8 +144,9 @@ fun OnboardingScreen(
                         Text(
                             text = "Skip",
                             style = MaterialTheme.typography.titleMedium.copy(
-                                color = TextWhite.copy(alpha = 0.8f),
-                                fontWeight = FontWeight.SemiBold
+                                color = TextWhite.copy(alpha = 0.85f),
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 16.sp
                             ),
                             modifier = Modifier.clickable { onFinish() }
                         )
@@ -147,7 +159,8 @@ fun OnboardingScreen(
                                 text = "Next",
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     color = TextWhite,
-                                    fontWeight = FontWeight.Bold
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp
                                 )
                             )
                             Spacer(Modifier.width(6.dp))
@@ -162,9 +175,9 @@ fun OnboardingScreen(
                 } else {
                     Box(
                         modifier = Modifier
-                            .size(64.dp)
+                            .size(56.dp)
                             .background(TextWhite, CircleShape)
-                            .border(4.dp, TextWhite.copy(alpha = 0.3f), CircleShape)
+                            .border(3.dp, TextWhite.copy(alpha = 0.3f), CircleShape)
                             .clickable { onFinish() },
                         contentAlignment = Alignment.Center
                     ) {
@@ -172,7 +185,7 @@ fun OnboardingScreen(
                             imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                             contentDescription = "Start",
                             tint = PrimaryOrange,
-                            modifier = Modifier.size(28.dp)
+                            modifier = Modifier.size(26.dp)
                         )
                     }
                 }

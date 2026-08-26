@@ -48,11 +48,12 @@ fun LoginScreen(
             .fillMaxSize()
             .background(BackgroundWhite)
             .statusBarsPadding()
+            .navigationBarsPadding()
             .padding(horizontal = 24.dp)
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.Start
     ) {
-        Spacer(Modifier.height(40.dp))
+        Spacer(Modifier.height(30.dp))
 
         Text(
             text = "Login to your\naccount.",
@@ -93,7 +94,7 @@ fun LoginScreen(
             }
         }
 
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(24.dp))
 
         AppInputField(
             value = email,
@@ -134,7 +135,7 @@ fun LoginScreen(
             )
         }
 
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(24.dp))
 
         AppPrimaryButton(
             text = "Sign In",
@@ -158,14 +159,16 @@ fun LoginScreen(
             }
         )
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(14.dp))
 
         // Demo Fast-Track button
         OutlinedButton(
             onClick = {
                 scope.launch {
-                    repository.login("Albertstevano@gmail.com", "password123")
-                    onLoginSuccess()
+                    isLoading = true
+                    val result = repository.login("Albertstevano@gmail.com", "password123")
+                    isLoading = false
+                    result.onSuccess { onLoginSuccess() }
                 }
             },
             modifier = Modifier
@@ -183,12 +186,12 @@ fun LoginScreen(
             )
         }
 
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(24.dp))
 
         // Social Logins
         SocialLoginSection()
 
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(24.dp))
 
         // Footer Register Link
         Row(
@@ -210,7 +213,7 @@ fun LoginScreen(
             )
         }
 
-        Spacer(Modifier.height(30.dp))
+        Spacer(Modifier.height(24.dp))
     }
 }
 
@@ -233,11 +236,12 @@ fun RegisterScreen(
             .fillMaxSize()
             .background(BackgroundWhite)
             .statusBarsPadding()
+            .navigationBarsPadding()
             .padding(horizontal = 24.dp)
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.Start
     ) {
-        Spacer(Modifier.height(40.dp))
+        Spacer(Modifier.height(30.dp))
 
         Text(
             text = "Create your new\naccount",
@@ -278,7 +282,7 @@ fun RegisterScreen(
             }
         }
 
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(24.dp))
 
         AppInputField(
             value = email,
@@ -356,7 +360,7 @@ fun RegisterScreen(
             )
         }
 
-        Spacer(Modifier.height(26.dp))
+        Spacer(Modifier.height(24.dp))
 
         AppPrimaryButton(
             text = "Register",
@@ -389,11 +393,11 @@ fun RegisterScreen(
             }
         )
 
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(24.dp))
 
         SocialLoginSection()
 
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(24.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -414,7 +418,7 @@ fun RegisterScreen(
             )
         }
 
-        Spacer(Modifier.height(30.dp))
+        Spacer(Modifier.height(24.dp))
     }
 }
 
@@ -434,6 +438,7 @@ fun ForgotPasswordScreen(
             .fillMaxSize()
             .background(BackgroundWhite)
             .statusBarsPadding()
+            .navigationBarsPadding()
     ) {
         AppHeaderBar(
             title = "",
@@ -492,7 +497,7 @@ fun ForgotPasswordScreen(
                 }
             )
 
-            Spacer(Modifier.height(30.dp))
+            Spacer(Modifier.height(24.dp))
         }
     }
 }
@@ -578,6 +583,7 @@ fun OtpVerificationScreen(
             .fillMaxSize()
             .background(BackgroundWhite)
             .statusBarsPadding()
+            .navigationBarsPadding()
     ) {
         AppHeaderBar(
             title = "OTP",
@@ -669,7 +675,7 @@ fun OtpVerificationScreen(
                 }
             )
 
-            Spacer(Modifier.height(30.dp))
+            Spacer(Modifier.height(24.dp))
         }
     }
 }
@@ -692,6 +698,7 @@ fun ResetPasswordScreen(
                 .fillMaxSize()
                 .background(BackgroundWhite)
                 .statusBarsPadding()
+                .navigationBarsPadding()
         ) {
             AppHeaderBar(
                 title = "Reset Password",
@@ -760,7 +767,7 @@ fun ResetPasswordScreen(
                     }
                 )
 
-                Spacer(Modifier.height(30.dp))
+                Spacer(Modifier.height(24.dp))
             }
         }
 

@@ -154,7 +154,7 @@ fun PaymentAddressScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 SummaryRow("Name", user.fullName.ifEmpty { "Albert Stevano Bajefski" })
-                SummaryRow("Phone No.", user.phone.ifEmpty { "+1 325-433-7656" })
+                SummaryRow("Phone No.", user.phone.orEmpty().ifEmpty { "+1 325-433-7656" })
                 SummaryRow("Address", "New York")
                 SummaryRow("House No.", "BC54 Berlin")
                 SummaryRow("City", "New York City")

@@ -20,6 +20,8 @@ fun createHttpClient(): HttpClient {
                     prettyPrint = true
                     isLenient = true
                     ignoreUnknownKeys = true
+                    coerceInputValues = true
+                    explicitNulls = false
                 }
             )
         }

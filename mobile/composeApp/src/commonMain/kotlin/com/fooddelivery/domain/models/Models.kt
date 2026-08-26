@@ -68,19 +68,21 @@ data class User(
     @SerialName("full_name")
     val fullName: String = "",
     val email: String = "",
-    val phone: String = "",
+    val phone: String? = null,
     @SerialName("date_of_birth")
-    val dateOfBirth: String = "",
+    val dateOfBirth: String? = null,
     val gender: String = "Male",
     @SerialName("avatar_url")
-    val avatarUrl: String = "",
+    val avatarUrl: String? = null,
+    val role: String = "customer",
+    val status: String = "active",
     val token: String = ""
 )
 
 @Serializable
 data class Category(
-    val id: Long,
-    val name: String,
+    val id: Long = 0,
+    val name: String = "",
     val icon: String = "🍔",
     @SerialName("is_selected")
     val isSelected: Boolean = false
@@ -88,10 +90,10 @@ data class Category(
 
 @Serializable
 data class Food(
-    val id: Long,
+    val id: Long = 0,
     @SerialName("category_id")
     val categoryId: Long = 1,
-    val name: String,
+    val name: String = "",
     val description: String = "",
     val price: Double = 0.0,
     @SerialName("original_price")
@@ -196,9 +198,9 @@ data class SavedPaymentCard(
 
 @Serializable
 data class AppNotificationItem(
-    val id: Long,
-    val title: String,
-    val message: String,
+    val id: Long = 0,
+    val title: String = "",
+    val message: String = "",
     @SerialName("time_ago")
     val timeAgo: String = "Today",
     val type: String = "DISCOUNT",
