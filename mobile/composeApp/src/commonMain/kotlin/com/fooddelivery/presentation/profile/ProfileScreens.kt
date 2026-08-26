@@ -36,6 +36,7 @@ fun ProfileScreen(
     onNavigateToSettings: () -> Unit,
     onNavigateToCards: () -> Unit,
     onNavigateToHelpCenter: () -> Unit,
+    onNavigateToTracking: () -> Unit = {},
     onSignOut: () -> Unit
 ) {
     val user by repository.currentUser.collectAsState()
@@ -115,7 +116,9 @@ fun ProfileScreen(
             Surface(
                 shape = RoundedCornerShape(18.dp),
                 color = SurfaceLight,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = lastOrder != null) { onNavigateToTracking() }
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(

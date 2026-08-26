@@ -226,6 +226,7 @@ fun App() {
                             onNavigateToSettings = { navigateTo(Screen.Settings) },
                             onNavigateToCards = { navigateTo(Screen.Cards) },
                             onNavigateToHelpCenter = { navigateTo(Screen.HelpCenter) },
+                            onNavigateToTracking = { navigateTo(Screen.DeliveryTracking) },
                             onSignOut = {
                                 repository.logout()
                                 navigateTo(Screen.Login, clearStack = true)
