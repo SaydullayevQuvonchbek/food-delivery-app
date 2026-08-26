@@ -7,13 +7,59 @@ import kotlinx.serialization.Serializable
 data class ApiResponse<T>(
     val success: Boolean = true,
     val message: String? = null,
-    val data: T? = null
+    val data: T? = null,
+    val errors: Map<String, List<String>>? = null
 )
 
 @Serializable
 data class AuthData(
     val user: User? = null,
     val token: String? = null
+)
+
+@Serializable
+data class LoginRequest(
+    val email: String,
+    val password: String
+)
+
+@Serializable
+data class RegisterRequest(
+    @SerialName("full_name") val fullName: String,
+    val email: String,
+    val password: String,
+    val phone: String? = null
+)
+
+@Serializable
+data class ForgotPasswordRequest(
+    val email: String
+)
+
+@Serializable
+data class VerifyOtpRequest(
+    val email: String,
+    val otp: String
+)
+
+@Serializable
+data class ResetPasswordRequest(
+    val email: String,
+    val password: String,
+    @SerialName("password_confirmation") val passwordConfirmation: String
+)
+
+@Serializable
+data class CreateOrderRequest(
+    @SerialName("address_id") val addressId: Long = 1,
+    @SerialName("payment_method") val paymentMethod: String = "card",
+    val items: List<CreateOrderItemRequest>
+)
+
+@Serializable
+data class CreateOrderItemRequest(
+    @SerialName("food_id") val foodId: Long,
+    val quantity: Int
 )
 
 @Serializable

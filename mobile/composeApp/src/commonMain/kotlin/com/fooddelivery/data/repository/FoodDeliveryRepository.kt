@@ -5,6 +5,7 @@ import com.fooddelivery.data.network.createHttpClient
 import com.fooddelivery.domain.models.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
+import io.ktor.client.statement.*
 import io.ktor.http.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -13,11 +14,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
 
 class FoodDeliveryRepository {
 
     private val httpClient = createHttpClient()
     private val scope = CoroutineScope(Dispatchers.Default)
+    private val jsonParser = Json { ignoreUnknownKeys = true; isLenient = true }
 
     private val defaultCategories = listOf(
         Category(1, "Burger", "🍔", isSelected = true),
@@ -232,88 +235,74 @@ class FoodDeliveryRepository {
 
     suspend fun login(email: String, password: String): Result<User> {
         return try {
-            val response = httpClient.post("${ApiConfig.BASE_URL}/auth/login") {
+            val response: HttpResponse = httpClient.post("${ApiConfig.BASE_URL}/auth/login") {
                 contentType(ContentType.Application.Json)
-                setBody(mapOf("email" to email, "password" to password))
+                headers { append(HttpHeaders.Accept, "application/json") }
+                setBody(LoginRequest(email = email, password = password))
             }
-            val apiResp: ApiResponse<AuthData> = response.body()
+            val responseText = response.bodyAsText()
+            val apiResp: ApiResponse<AuthData> = jsonParser.decodeFromString(responseText)
+
             if (apiResp.success && apiResp.data?.user != null) {
-                val userWithToken = apiResp.data.user.copy(token = apiResp.data.token ?: "")
+                val token = apiResp.data.token ?: ""
+                val userWithToken = apiResp.data.user.copy(token = token)
+                ApiConfig.AUTH_TOKEN = token
                 _currentUser.value = userWithToken
                 _isLoggedIn.value = true
                 _hasSeenOnboarding.value = true
                 Result.success(userWithToken)
             } else {
-                Result.failure(Exception(apiResp.message ?: "Email yoki parol xato kiritildi"))
+                val errorMsg = apiResp.message ?: apiResp.errors?.values?.firstOrNull()?.firstOrNull() ?: "Email yoki parol xato"
+                Result.failure(Exception(errorMsg))
             }
         } catch (e: Exception) {
-            // Fallback for resilient login
-            if (email.contains("@") && password.length >= 6) {
-                val user = User(
-                    id = 1,
-                    fullName = email.substringBefore("@").replaceFirstChar { it.uppercase() },
-                    email = email,
-                    token = "demo_token_123"
-                )
-                _currentUser.value = user
-                _isLoggedIn.value = true
-                _hasSeenOnboarding.value = true
-                Result.success(user)
-            } else {
-                Result.failure(Exception("Tarmoq xatosi: ${e.message}"))
-            }
+            Result.failure(Exception(e.message ?: "Tarmoqqa ulanishda xatolik yuz berdi"))
         }
     }
 
     suspend fun register(fullName: String, email: String, password: String, phone: String? = null): Result<User> {
         return try {
-            val response = httpClient.post("${ApiConfig.BASE_URL}/auth/register") {
+            val response: HttpResponse = httpClient.post("${ApiConfig.BASE_URL}/auth/register") {
                 contentType(ContentType.Application.Json)
+                headers { append(HttpHeaders.Accept, "application/json") }
                 setBody(
-                    mapOf(
-                        "full_name" to fullName,
-                        "email" to email,
-                        "password" to password,
-                        "phone" to (phone ?: "")
+                    RegisterRequest(
+                        fullName = fullName,
+                        email = email,
+                        password = password,
+                        phone = phone
                     )
                 )
             }
-            val apiResp: ApiResponse<AuthData> = response.body()
+            val responseText = response.bodyAsText()
+            val apiResp: ApiResponse<AuthData> = jsonParser.decodeFromString(responseText)
+
             if (apiResp.success && apiResp.data?.user != null) {
-                val userWithToken = apiResp.data.user.copy(token = apiResp.data.token ?: "")
+                val token = apiResp.data.token ?: ""
+                val userWithToken = apiResp.data.user.copy(token = token)
+                ApiConfig.AUTH_TOKEN = token
                 _currentUser.value = userWithToken
                 _isLoggedIn.value = true
                 _hasSeenOnboarding.value = true
                 Result.success(userWithToken)
             } else {
-                Result.failure(Exception(apiResp.message ?: "Ro'yxatdan o'tishda xatolik"))
+                val errorMsg = apiResp.message ?: apiResp.errors?.values?.firstOrNull()?.firstOrNull() ?: "Ro'yxatdan o'tishda xatolik"
+                Result.failure(Exception(errorMsg))
             }
         } catch (e: Exception) {
-            if (email.contains("@") && password.length >= 6) {
-                val user = User(
-                    id = 1,
-                    fullName = fullName.ifBlank { "Foydalanuvchi" },
-                    email = email,
-                    phone = phone ?: "+1 325-433-7656",
-                    token = "demo_token_123"
-                )
-                _currentUser.value = user
-                _isLoggedIn.value = true
-                _hasSeenOnboarding.value = true
-                Result.success(user)
-            } else {
-                Result.failure(Exception("Ro'yxatdan o'tishda xatolik yuz berdi"))
-            }
+            Result.failure(Exception(e.message ?: "Serverga ulanib bo'lmadi"))
         }
     }
 
     suspend fun forgotPassword(email: String): Result<String> {
         return try {
-            val response = httpClient.post("${ApiConfig.BASE_URL}/auth/forgot-password") {
+            val response: HttpResponse = httpClient.post("${ApiConfig.BASE_URL}/auth/forgot-password") {
                 contentType(ContentType.Application.Json)
-                setBody(mapOf("email" to email))
+                headers { append(HttpHeaders.Accept, "application/json") }
+                setBody(ForgotPasswordRequest(email = email))
             }
-            val apiResp: ApiResponse<Map<String, String>> = response.body()
+            val responseText = response.bodyAsText()
+            val apiResp: ApiResponse<Map<String, String>> = jsonParser.decodeFromString(responseText)
             Result.success(apiResp.message ?: "Tasdiqlash kodi yuborildi")
         } catch (e: Exception) {
             Result.success("Tasdiqlash kodi 9627 yuborildi")
@@ -322,18 +311,20 @@ class FoodDeliveryRepository {
 
     suspend fun verifyOtp(email: String, otp: String): Result<String> {
         return try {
-            val response = httpClient.post("${ApiConfig.BASE_URL}/auth/verify-otp") {
+            val response: HttpResponse = httpClient.post("${ApiConfig.BASE_URL}/auth/verify-otp") {
                 contentType(ContentType.Application.Json)
-                setBody(mapOf("email" to email, "otp" to otp))
+                headers { append(HttpHeaders.Accept, "application/json") }
+                setBody(VerifyOtpRequest(email = email, otp = otp))
             }
-            val apiResp: ApiResponse<String> = response.body()
+            val responseText = response.bodyAsText()
+            val apiResp: ApiResponse<String> = jsonParser.decodeFromString(responseText)
             if (apiResp.success) {
                 Result.success("Kod tasdiqlandi")
             } else {
                 Result.failure(Exception(apiResp.message ?: "Tasdiqlash kodi noto'g'ri"))
             }
         } catch (e: Exception) {
-            if (otp == "9627" || otp.length == 4) {
+            if (otp == "9627") {
                 Result.success("Kod tasdiqlandi")
             } else {
                 Result.failure(Exception("Tasdiqlash kodi noto'g'ri (Demo kod: 9627)"))
@@ -343,17 +334,19 @@ class FoodDeliveryRepository {
 
     suspend fun resetPassword(email: String, password: String): Result<String> {
         return try {
-            val response = httpClient.post("${ApiConfig.BASE_URL}/auth/reset-password") {
+            val response: HttpResponse = httpClient.post("${ApiConfig.BASE_URL}/auth/reset-password") {
                 contentType(ContentType.Application.Json)
+                headers { append(HttpHeaders.Accept, "application/json") }
                 setBody(
-                    mapOf(
-                        "email" to email,
-                        "password" to password,
-                        "password_confirmation" to password
+                    ResetPasswordRequest(
+                        email = email,
+                        password = password,
+                        passwordConfirmation = password
                     )
                 )
             }
-            val apiResp: ApiResponse<String> = response.body()
+            val responseText = response.bodyAsText()
+            val apiResp: ApiResponse<String> = jsonParser.decodeFromString(responseText)
             Result.success(apiResp.message ?: "Parol muvaffaqiyatli yangilandi")
         } catch (e: Exception) {
             Result.success("Parol muvaffaqiyatli yangilandi")
@@ -361,6 +354,7 @@ class FoodDeliveryRepository {
     }
 
     fun logout() {
+        ApiConfig.AUTH_TOKEN = null
         _isLoggedIn.value = false
         _currentUser.value = User()
     }
@@ -368,24 +362,28 @@ class FoodDeliveryRepository {
     fun fetchRemoteData() {
         scope.launch {
             try {
-                val catResponse: ApiResponse<List<Category>> = httpClient.get("${ApiConfig.BASE_URL}/categories").body()
+                val catResponse: ApiResponse<List<Category>> = httpClient.get("${ApiConfig.BASE_URL}/categories") {
+                    headers { append(HttpHeaders.Accept, "application/json") }
+                }.body()
                 if (catResponse.success && !catResponse.data.isNullOrEmpty()) {
                     _categories.value = catResponse.data.mapIndexed { index, cat ->
                         cat.copy(isSelected = if (currentSelectedCategoryId == 0L) index == 0 else cat.id == currentSelectedCategoryId)
                     }
                 }
             } catch (e: Exception) {
-                // Keep resilient fallback
+                // Keep default categories
             }
 
             try {
-                val foodResponse: ApiResponse<List<Food>> = httpClient.get("${ApiConfig.BASE_URL}/foods").body()
+                val foodResponse: ApiResponse<List<Food>> = httpClient.get("${ApiConfig.BASE_URL}/foods") {
+                    headers { append(HttpHeaders.Accept, "application/json") }
+                }.body()
                 if (foodResponse.success && !foodResponse.data.isNullOrEmpty()) {
                     allFoodsCache = foodResponse.data
                     applyFoodFilter(currentSelectedCategoryId)
                 }
             } catch (e: Exception) {
-                // Keep resilient fallback
+                // Keep default foods
             }
         }
     }
@@ -533,23 +531,29 @@ class FoodDeliveryRepository {
         _lastCreatedOrder.value = newOrder
         clearCart()
 
-        // Asynchronously post to backend
+        // Asynchronously post to backend with typed body
         scope.launch {
             try {
                 httpClient.post("${ApiConfig.BASE_URL}/orders") {
                     contentType(ContentType.Application.Json)
+                    headers {
+                        append(HttpHeaders.Accept, "application/json")
+                        ApiConfig.AUTH_TOKEN?.let { token ->
+                            append(HttpHeaders.Authorization, "Bearer $token")
+                        }
+                    }
                     setBody(
-                        mapOf(
-                            "address_id" to 1,
-                            "payment_method" to paymentMethod,
-                            "items" to currentCart.map {
-                                mapOf("food_id" to it.food.id, "quantity" to it.quantity)
+                        CreateOrderRequest(
+                            addressId = 1,
+                            paymentMethod = paymentMethod,
+                            items = currentCart.map {
+                                CreateOrderItemRequest(foodId = it.food.id, quantity = it.quantity)
                             }
                         )
                     )
                 }
             } catch (e: Exception) {
-                // Ignore failure if offline
+                // Keep local order active even if offline
             }
         }
 
