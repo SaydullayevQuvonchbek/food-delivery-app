@@ -1,0 +1,26 @@
+package com.fooddelivery.presentation.navigation
+
+sealed class Screen(val route: String) {
+    data object Onboarding : Screen("onboarding")
+    data object Login : Screen("login")
+    data object Register : Screen("register")
+    data object ForgotPassword : Screen("forgot_password")
+    data object OtpVerification : Screen("otp_verification")
+    data object ResetPassword : Screen("reset_password")
+    data object Home : Screen("home")
+    data class FoodDetail(val foodId: Long) : Screen("food_detail/$foodId")
+    data object Search : Screen("search")
+    data object Cart : Screen("cart")
+    data object Checkout : Screen("checkout")
+    data object DeliveryTracking : Screen("delivery_tracking")
+    data object ChatList : Screen("chat_list")
+    data class Chat(val courierId: Long) : Screen("chat/$courierId")
+    data class AudioCall(val courierId: Long) : Screen("call/$courierId")
+    data object Notifications : Screen("notifications")
+    data object Profile : Screen("profile")
+    data object PersonalData : Screen("personal_data")
+    data object Settings : Screen("settings")
+    data object Cards : Screen("cards")
+    data object AddCard : Screen("add_card")
+    data object HelpCenter : Screen("help_center")
+}

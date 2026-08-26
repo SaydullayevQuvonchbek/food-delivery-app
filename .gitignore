@@ -1,0 +1,30 @@
+# Gradle & Android
+.gradle/
+build/
+**/build/
+*.iml
+.idea/
+local.properties
+.DS_Store
+
+# Backend / PHP / Laravel
+backend/vendor/
+backend/.env
+backend/storage/*.key
+backend/storage/framework/cache/*
+backend/storage/framework/sessions/*
+backend/storage/framework/views/*
+backend/storage/logs/*
+!backend/storage/framework/cache/.gitignore
+!backend/storage/framework/sessions/.gitignore
+!backend/storage/framework/views/.gitignore
+!backend/storage/logs/.gitignore
+
+# Node & Misc
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Temporary
+*.tmp
+*.log
