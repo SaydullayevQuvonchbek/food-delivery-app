@@ -38,6 +38,7 @@ fun ProfileScreen(
     onNavigateToSettings: () -> Unit,
     onNavigateToCards: () -> Unit,
     onNavigateToHelpCenter: () -> Unit,
+    onNavigateToOrdersHistory: () -> Unit = {},
     onNavigateToTracking: () -> Unit = {},
     onSignOut: () -> Unit
 ) {
@@ -54,7 +55,7 @@ fun ProfileScreen(
                 .padding(horizontal = 20.dp, vertical = 20.dp)
         ) {
             Text(
-                text = "Profile Settings",
+                text = "Foydalanuvchi Profili",
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             )
@@ -91,7 +92,7 @@ fun ProfileScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.PhotoCamera,
-                        contentDescription = "Change photo",
+                        contentDescription = "Rasm yuklash",
                         tint = TextWhite,
                         modifier = Modifier.size(14.dp)
                     )
@@ -101,13 +102,13 @@ fun ProfileScreen(
             Spacer(Modifier.height(12.dp))
 
             Text(
-                text = user.fullName.ifEmpty { "User" },
+                text = user.fullName.ifEmpty { "Foydalanuvchi" },
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             )
             Spacer(Modifier.height(2.dp))
             Text(
-                text = user.email.ifEmpty { "user@example.com" },
+                text = user.email.ifEmpty { "user@insof.uz" },
                 style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary),
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             )
@@ -121,7 +122,7 @@ fun ProfileScreen(
                 color = SurfaceLight,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(enabled = lastOrder != null) { onNavigateToTracking() }
+                    .clickable { onNavigateToOrdersHistory() }
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(
@@ -130,11 +131,11 @@ fun ProfileScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "My Orders",
+                            text = "Mening Buyurtmalarim",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                         Text(
-                            text = if (lastOrder != null) "Active" else "Empty",
+                            text = if (lastOrder != null) "Faol Buyurtma" else "Barchasi >",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = if (lastOrder != null) PrimaryOrange else TextSecondary,
                                 fontWeight = FontWeight.Bold
@@ -152,7 +153,7 @@ fun ProfileScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Order ID ${order.orderNumber}",
+                                text = "Buyurtma ${order.orderNumber}",
                                 style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
                             )
                             Box(
@@ -162,7 +163,7 @@ fun ProfileScreen(
                                     .padding(horizontal = 8.dp, vertical = 4.dp)
                             ) {
                                 Text(
-                                    text = "In Delivery",
+                                    text = "Yetkazilmoqda",
                                     style = TextStyle(color = TextWhite, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                 )
                             }
@@ -183,7 +184,7 @@ fun ProfileScreen(
                             Spacer(Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = order.items.firstOrNull()?.food?.name ?: "Food Order",
+                                    text = order.items.firstOrNull()?.food?.name ?: "Taom buyurtmasi",
                                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
                                 )
                                 Text(
@@ -198,7 +199,7 @@ fun ProfileScreen(
                         }
                     } else {
                         Text(
-                            text = "Hozircha faol buyurtmalaringiz yo'q",
+                            text = "Hozircha faol buyurtmalaringiz yo'q. Tarixni ko'rish uchun bosing.",
                             style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
                         )
                     }
@@ -209,7 +210,7 @@ fun ProfileScreen(
 
             // Profile Menu List
             Text(
-                text = "Profile",
+                text = "Asosiy Sozlamalar",
                 style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary, fontWeight = FontWeight.Bold)
             )
 
@@ -217,24 +218,29 @@ fun ProfileScreen(
 
             ProfileMenuItem(
                 icon = Icons.Outlined.Person,
-                title = "Personal Data",
+                title = "Shaxsiy Ma'lumotlar",
                 onClick = onNavigateToPersonalData
             )
             ProfileMenuItem(
-                icon = Icons.Outlined.Settings,
-                title = "Settings",
-                onClick = onNavigateToSettings
+                icon = Icons.Outlined.ReceiptLong,
+                title = "Buyurtmalar Tarixi",
+                onClick = onNavigateToOrdersHistory
             )
             ProfileMenuItem(
                 icon = Icons.Outlined.CreditCard,
-                title = "Extra Card",
+                title = "To'lov Kartalari",
                 onClick = onNavigateToCards
+            )
+            ProfileMenuItem(
+                icon = Icons.Outlined.Settings,
+                title = "Ilova Sozlamalari",
+                onClick = onNavigateToSettings
             )
 
             Spacer(Modifier.height(16.dp))
 
             Text(
-                text = "Support",
+                text = "Yordam va Aloqa",
                 style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary, fontWeight = FontWeight.Bold)
             )
 
@@ -242,49 +248,18 @@ fun ProfileScreen(
 
             ProfileMenuItem(
                 icon = Icons.Outlined.HelpOutline,
-                title = "Help Center",
+                title = "Yordam Markazi (FAQ)",
                 onClick = onNavigateToHelpCenter
-            )
-            ProfileMenuItem(
-                icon = Icons.Outlined.Delete,
-                title = "Request Account Deletion",
-                onClick = { /* Account deletion */ }
-            )
-            ProfileMenuItem(
-                icon = Icons.Outlined.PersonAdd,
-                title = "Add another account",
-                onClick = { /* Add account */ }
             )
 
             Spacer(Modifier.height(24.dp))
 
-            // Sign Out Button
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
-                    .clip(ButtonShape)
-                    .background(PrimaryOrangeSoft)
-                    .clickable { showSignOutModal = true },
-                contentAlignment = Alignment.Center
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ExitToApp,
-                        contentDescription = "Sign Out",
-                        tint = DangerRed,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = "Sign Out",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            color = DangerRed,
-                            fontWeight = FontWeight.Bold
-                        )
-                    )
-                }
-            }
+            AppPrimaryButton(
+                text = "Tizimdan Chiqish",
+                onClick = { showSignOutModal = true },
+                containerColor = DangerRed.copy(alpha = 0.1f),
+                contentColor = DangerRed
+            )
 
             Spacer(Modifier.height(80.dp))
         }
@@ -795,13 +770,14 @@ fun SignOutDialog(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "Sign Out",
+                    text = "Tizimdan Chiqish",
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = "Do you want to log out?",
-                    style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
+                    text = "Haqiqatan ham hisobingizdan chiqmoqchimisiz?",
+                    style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
 
                 Spacer(Modifier.height(24.dp))
@@ -815,16 +791,16 @@ fun SignOutDialog(
                         modifier = Modifier.weight(1f).height(48.dp),
                         shape = ButtonShape
                     ) {
-                        Text(text = "Cancel", style = MaterialTheme.typography.titleMedium)
+                        Text(text = "Bekor qilish", style = MaterialTheme.typography.titleSmall)
                     }
 
                     Button(
                         onClick = onConfirm,
                         modifier = Modifier.weight(1f).height(48.dp),
                         shape = ButtonShape,
-                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryOrange)
+                        colors = ButtonDefaults.buttonColors(containerColor = DangerRed)
                     ) {
-                        Text(text = "Log Out", style = MaterialTheme.typography.titleMedium.copy(color = TextWhite))
+                        Text(text = "Chiqish", style = MaterialTheme.typography.titleSmall.copy(color = TextWhite, fontWeight = FontWeight.Bold))
                     }
                 }
             }

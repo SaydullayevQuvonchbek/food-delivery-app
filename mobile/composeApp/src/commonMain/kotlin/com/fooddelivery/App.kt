@@ -21,6 +21,7 @@ import com.fooddelivery.presentation.home.HomeScreen
 import com.fooddelivery.presentation.navigation.Screen
 import com.fooddelivery.presentation.notifications.NotificationScreen
 import com.fooddelivery.presentation.onboarding.OnboardingScreen
+import com.fooddelivery.presentation.orders.OrdersHistoryScreen
 import com.fooddelivery.presentation.profile.*
 import com.fooddelivery.presentation.search.SearchScreen
 import com.fooddelivery.presentation.tracking.DeliveryTrackingScreen
@@ -244,11 +245,19 @@ fun App() {
                             onNavigateToSettings = { navigateTo(Screen.Settings) },
                             onNavigateToCards = { navigateTo(Screen.Cards) },
                             onNavigateToHelpCenter = { navigateTo(Screen.HelpCenter) },
+                            onNavigateToOrdersHistory = { navigateTo(Screen.OrdersHistory) },
                             onNavigateToTracking = { navigateTo(Screen.DeliveryTracking) },
                             onSignOut = {
                                 repository.logout()
                                 navigateTo(Screen.Login, clearStack = true)
                             }
+                        )
+                    }
+                    is Screen.OrdersHistory -> {
+                        OrdersHistoryScreen(
+                            repository = repository,
+                            onBackClick = { popBack() },
+                            onNavigateToTracking = { navigateTo(Screen.DeliveryTracking) }
                         )
                     }
                     is Screen.PersonalData -> {

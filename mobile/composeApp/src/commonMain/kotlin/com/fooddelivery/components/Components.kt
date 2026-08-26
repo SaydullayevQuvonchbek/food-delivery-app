@@ -443,13 +443,13 @@ fun AppBottomBar(
         ) {
             BottomNavItem(
                 icon = Icons.Filled.Home,
-                label = "Home",
+                label = "Asosiy",
                 isSelected = currentRoute == "home",
                 onClick = { onNavigate("home") }
             )
             BottomNavItem(
                 icon = Icons.Filled.ShoppingBag,
-                label = "Cart",
+                label = "Savat",
                 isSelected = currentRoute == "cart",
                 badgeCount = cartItemCount,
                 onClick = { onNavigate("cart") }
@@ -462,7 +462,7 @@ fun AppBottomBar(
             )
             BottomNavItem(
                 icon = Icons.Filled.Person,
-                label = "Profile",
+                label = "Profil",
                 isSelected = currentRoute == "profile",
                 onClick = { onNavigate("profile") }
             )

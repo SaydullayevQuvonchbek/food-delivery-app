@@ -190,6 +190,13 @@ fun ChatScreen(
 
     LaunchedEffect(chatId) { repository.openChat(chatId) }
 
+    DisposableEffect(chatId) {
+        repository.startLiveChatPolling(chatId)
+        onDispose {
+            repository.stopLiveChatPolling()
+        }
+    }
+
     // Yangi xabar kelganda oxirgi xabarga tushamiz
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)

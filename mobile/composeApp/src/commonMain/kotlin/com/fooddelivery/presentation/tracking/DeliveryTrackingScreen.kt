@@ -41,6 +41,13 @@ fun DeliveryTrackingScreen(
     // Kuzatuv ma'lumotlari serverdagi buyurtmadan olinadi
     LaunchedEffect(Unit) { repository.loadOrders() }
 
+    DisposableEffect(lastOrder?.id) {
+        lastOrder?.id?.let { repository.startOrderTrackingPolling(it) }
+        onDispose {
+            repository.stopOrderTrackingPolling()
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()

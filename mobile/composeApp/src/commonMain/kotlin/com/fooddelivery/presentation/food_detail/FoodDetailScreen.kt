@@ -23,9 +23,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
 import com.fooddelivery.components.*
 import com.fooddelivery.data.repository.FoodDeliveryRepository
 import com.fooddelivery.domain.models.Food
@@ -80,10 +82,19 @@ fun FoodDetailScreen(
                     .background(Color(0xFF382D24)),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = categoryEmoji(food.categoryId),
-                    fontSize = 110.sp
-                )
+                if (food.imageUrl.isNotBlank() && food.imageUrl.startsWith("http")) {
+                    AsyncImage(
+                        model = food.imageUrl,
+                        contentDescription = food.name,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Text(
+                        text = categoryEmoji(food.categoryId),
+                        fontSize = 110.sp
+                    )
+                }
 
                 // Top Floating Back & Favorite / Share buttons
                 Row(
@@ -110,7 +121,7 @@ fun FoodDetailScreen(
                     }
 
                     Text(
-                        text = "About This Menu",
+                        text = "Taom haqida",
                         style = MaterialTheme.typography.titleLarge.copy(color = TextWhite, fontWeight = FontWeight.Bold)
                     )
 
@@ -174,17 +185,17 @@ fun FoodDetailScreen(
 
                 Spacer(Modifier.height(16.dp))
 
-                // Attributes Row
+                // Stats Row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(20.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = "🛵", fontSize = 14.sp)
+                        Text(text = "🎯", fontSize = 14.sp)
                         Spacer(Modifier.width(4.dp))
                         Text(
-                            text = if (food.isFreeDelivery) "Free Delivery" else "Standard Delivery",
+                            text = food.distance,
                             style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
                         )
                     }
@@ -216,7 +227,7 @@ fun FoodDetailScreen(
                 Spacer(Modifier.height(24.dp))
 
                 Text(
-                    text = "Description",
+                    text = "Taom tavsifi",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                 )
                 Spacer(Modifier.height(8.dp))
@@ -237,11 +248,11 @@ fun FoodDetailScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Recomended For You",
+                        text = "Sizga tavsiya qilamiz",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                     Text(
-                        text = "See All",
+                        text = "Barchasi",
                         style = MaterialTheme.typography.bodyMedium.copy(
                             color = PrimaryOrange,
                             fontWeight = FontWeight.SemiBold
@@ -273,7 +284,16 @@ fun FoodDetailScreen(
                                         .background(Color(0xFFE8E0D4)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text(text = categoryEmoji(recFood.categoryId), fontSize = 36.sp)
+                                    if (recFood.imageUrl.isNotBlank() && recFood.imageUrl.startsWith("http")) {
+                                        AsyncImage(
+                                            model = recFood.imageUrl,
+                                            contentDescription = recFood.name,
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                    } else {
+                                        Text(text = categoryEmoji(recFood.categoryId), fontSize = 36.sp)
+                                    }
                                 }
                                 Spacer(Modifier.height(6.dp))
                                 Text(
@@ -321,7 +341,7 @@ fun FoodDetailScreen(
                 Spacer(Modifier.width(16.dp))
 
                 AppPrimaryButton(
-                    text = "Add to Cart",
+                    text = "Savatga qo'shish",
                     icon = Icons.Filled.ShoppingCart,
                     onClick = {
                         repository.addToCart(food, quantity)

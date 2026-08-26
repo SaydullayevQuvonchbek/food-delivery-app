@@ -10,11 +10,14 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 
@@ -913,6 +916,48 @@ class FoodDeliveryRepository {
 
         loadMessages(targetChatId)
         Result.success(Unit)
+    }
+
+    private var chatPollingJob: Job? = null
+    private var orderTrackingPollingJob: Job? = null
+
+    fun startLiveChatPolling(chatId: Long) {
+        chatPollingJob?.cancel()
+        chatPollingJob = scope.launch {
+            while (isActive) {
+                loadMessages(chatId)
+                delay(2500)
+            }
+        }
+    }
+
+    fun stopLiveChatPolling() {
+        chatPollingJob?.cancel()
+        chatPollingJob = null
+    }
+
+    fun startOrderTrackingPolling(orderId: Long) {
+        orderTrackingPollingJob?.cancel()
+        orderTrackingPollingJob = scope.launch {
+            while (isActive) {
+                try {
+                    val response = httpClient.get("${ApiConfig.BASE_URL}/orders/$orderId")
+                    val apiResp: ApiResponse<ServerOrder> = decode(response)
+                    if (apiResp.success && apiResp.data != null) {
+                        val order = apiResp.data.toDomain(fallbackAddress = defaultAddress()?.addressLine.orEmpty())
+                        _activeOrder.value = order
+                        _orders.update { list -> list.map { if (it.id == order.id) order else it } }
+                    }
+                } catch (e: Exception) {
+                }
+                delay(3000)
+            }
+        }
+    }
+
+    fun stopOrderTrackingPolling() {
+        orderTrackingPollingJob?.cancel()
+        orderTrackingPollingJob = null
     }
 
     // ---------------- Yordamchilar ----------------

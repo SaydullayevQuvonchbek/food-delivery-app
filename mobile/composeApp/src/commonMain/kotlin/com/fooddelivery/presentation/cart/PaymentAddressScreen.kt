@@ -68,7 +68,7 @@ fun PaymentAddressScreen(
             .imePadding()
     ) {
         AppHeaderBar(
-            title = "Payment",
+            title = "Rasmiylashtirish",
             onBackClick = onBackClick
         )
 
@@ -80,12 +80,12 @@ fun PaymentAddressScreen(
                 .navigationBarsPadding()
         ) {
             Text(
-                text = "You deserve better meal",
+                text = "Mazali va issiq taomlar",
                 style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "Item Ordered",
+                text = "Tanlangan Taomlar",
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
             )
 
@@ -146,7 +146,7 @@ fun PaymentAddressScreen(
             Spacer(Modifier.height(16.dp))
 
             Text(
-                text = "Details Transaction",
+                text = "To'lov Tafsilotlari",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
             )
 
@@ -160,21 +160,21 @@ fun PaymentAddressScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                SummaryRow("Subtotal", formatPrice(subtotal))
-                SummaryRow("Driver / Delivery", if (DELIVERY_FEE == 0.0) "Bepul" else formatPrice(DELIVERY_FEE))
+                SummaryRow("Mahsulotlar summasi", formatPrice(subtotal))
+                SummaryRow("Yetkazib berish", if (DELIVERY_FEE == 0.0) "Bepul" else formatPrice(DELIVERY_FEE))
                 SummaryRow("Soliq (10%)", formatPrice(tax))
                 if (discount > 0) {
                     SummaryRow("Chegirma (${appliedPromo?.code})", "-${formatPrice(discount)}", valueColor = SuccessGreen)
                 }
                 HorizontalDivider(color = BorderLight)
-                SummaryRow("Total Price", formatPrice(total), isTotal = true)
+                SummaryRow("Jami to'lov", formatPrice(total), isTotal = true)
             }
 
             Spacer(Modifier.height(24.dp))
 
             // To'lov usuli
             Text(
-                text = "To'lov usuli",
+                text = "To'lov Usuli",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
             )
             Spacer(Modifier.height(12.dp))
@@ -197,7 +197,7 @@ fun PaymentAddressScreen(
             Spacer(Modifier.height(24.dp))
 
             Text(
-                text = "Deliver to :",
+                text = "Yetkazish Manzili:",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
             )
 
@@ -211,13 +211,13 @@ fun PaymentAddressScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                SummaryRow("Name", user.fullName.ifEmpty { "-" })
-                SummaryRow("Phone No.", user.phone.orEmpty().ifEmpty { "-" })
+                SummaryRow("Mijoz", user.fullName.ifEmpty { "-" })
+                SummaryRow("Telefon", user.phone.orEmpty().ifEmpty { "-" })
 
                 if (defaultAddress != null) {
-                    SummaryRow("Address", defaultAddress.addressLine)
-                    SummaryRow("House No.", defaultAddress.houseNumber.ifEmpty { "-" })
-                    SummaryRow("City", defaultAddress.city)
+                    SummaryRow("Manzil", defaultAddress.addressLine)
+                    SummaryRow("Uy/Kvartira", defaultAddress.houseNumber.ifEmpty { "-" })
+                    SummaryRow("Shahar", defaultAddress.city)
                 } else {
                     Text(
                         text = "Yetkazib berish manzilini kiriting:",
@@ -291,7 +291,7 @@ fun PaymentAddressScreen(
             Spacer(Modifier.height(24.dp))
 
             AppPrimaryButton(
-                text = "Checkout Now",
+                text = "Buyurtmani Tasdiqlash",
                 isLoading = isPlacingOrder,
                 enabled = selectedItems.isNotEmpty(),
                 onClick = {

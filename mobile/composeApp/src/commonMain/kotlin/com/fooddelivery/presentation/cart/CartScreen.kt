@@ -18,11 +18,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
 import com.fooddelivery.components.*
 import com.fooddelivery.data.repository.FoodDeliveryRepository
 import com.fooddelivery.domain.models.CartItem
@@ -66,7 +68,7 @@ fun CartScreen(
             .statusBarsPadding()
             .imePadding()
     ) {
-        AppHeaderBar(title = "My Cart")
+        AppHeaderBar(title = "Xarid Savati")
 
         if (cartItems.isEmpty()) {
             EmptyCartView(onFindFoods = onNavigateToHome)
@@ -135,7 +137,7 @@ fun CartScreen(
                 item {
                     Spacer(Modifier.height(10.dp))
                     AppPrimaryButton(
-                        text = if (selectedItems.isEmpty()) "Taom tanlang" else "Order Now",
+                        text = if (selectedItems.isEmpty()) "Taom tanlang" else "Buyurtma berish",
                         enabled = selectedItems.isNotEmpty(),
                         onClick = onNavigateToCheckout
                     )
@@ -162,12 +164,12 @@ fun DeliveryLocationCard(repository: FoodDeliveryRepository) {
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "Delivery Location",
+                text = "Yetkazish manzili",
                 style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
             )
             Spacer(Modifier.height(2.dp))
             Text(
-                text = defaultAddress?.let { "${it.label} (${it.addressLine})" } ?: "Manzil kiritilmagan",
+                text = defaultAddress?.let { "${it.label} (${it.addressLine})" } ?: "Toshkent sh., Chilonzor",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                 maxLines = 1
             )
@@ -203,7 +205,7 @@ fun PromoCodeCard(
             Box(modifier = Modifier.weight(1f)) {
                 if (promoCode.isEmpty() && appliedCode == null) {
                     Text(
-                        text = "Promo Code...",
+                        text = "Promokodni kiriting...",
                         style = MaterialTheme.typography.bodyMedium.copy(color = TextMuted)
                     )
                 }
@@ -233,7 +235,7 @@ fun PromoCodeCard(
                     )
                 } else {
                     Text(
-                        text = if (appliedCode != null) "Bekor qilish" else "Apply",
+                        text = if (appliedCode != null) "Bekor qilish" else "Qo'llash",
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = TextWhite,
                             fontWeight = FontWeight.Bold
@@ -293,7 +295,16 @@ fun CartItemRow(
                 .background(Color(0xFFE9E0D4)),
             contentAlignment = Alignment.Center
         ) {
-            Text(text = categoryEmoji(item.food.categoryId), fontSize = 32.sp)
+            if (item.food.imageUrl.isNotBlank() && item.food.imageUrl.startsWith("http")) {
+                AsyncImage(
+                    model = item.food.imageUrl,
+                    contentDescription = item.food.name,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Text(text = categoryEmoji(item.food.categoryId), fontSize = 32.sp)
+            }
         }
 
         Spacer(Modifier.width(12.dp))
@@ -325,7 +336,7 @@ fun CartItemRow(
 
                 Icon(
                     imageVector = Icons.Filled.Delete,
-                    contentDescription = "Remove",
+                    contentDescription = "O'chirish",
                     tint = DangerRed.copy(alpha = 0.8f),
                     modifier = Modifier
                         .size(20.dp)
@@ -353,20 +364,20 @@ fun PaymentSummaryCard(
             .padding(18.dp)
     ) {
         Text(
-            text = "Payment Summary",
+            text = "To'lov hisob-kitobi",
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
         )
 
         Spacer(Modifier.height(14.dp))
 
-        SummaryRow(label = "Total Items ($itemCount)", value = formatPrice(subtotal))
+        SummaryRow(label = "Mahsulotlar ($itemCount ta)", value = formatPrice(subtotal))
         Spacer(Modifier.height(8.dp))
-        SummaryRow(label = "Delivery Fee", value = if (deliveryFee == 0.0) "Bepul" else formatPrice(deliveryFee))
+        SummaryRow(label = "Yetkazib berish", value = if (deliveryFee == 0.0) "Bepul" else formatPrice(deliveryFee))
         Spacer(Modifier.height(8.dp))
         SummaryRow(label = "Soliq (10%)", value = formatPrice(tax))
         Spacer(Modifier.height(8.dp))
         SummaryRow(
-            label = "Discount",
+            label = "Chegirma",
             value = if (discount > 0) "-${formatPrice(discount)}" else formatPrice(0.0),
             valueColor = if (discount > 0) SuccessGreen else TextPrimary
         )
@@ -376,7 +387,7 @@ fun PaymentSummaryCard(
         Spacer(Modifier.height(12.dp))
 
         SummaryRow(
-            label = "Total",
+            label = "Jami to'lov",
             value = formatPrice(total),
             isTotal = true
         )

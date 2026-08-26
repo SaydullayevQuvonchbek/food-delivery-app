@@ -25,10 +25,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
 import com.fooddelivery.data.repository.FoodDeliveryRepository
 import com.fooddelivery.domain.models.Category
 import com.fooddelivery.domain.models.Food
@@ -66,7 +68,7 @@ fun HomeScreen(
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "Your Location",
+                        text = "Sizning manzilingiz",
                         style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
                     )
                     Icon(
@@ -83,8 +85,9 @@ fun HomeScreen(
                         fontSize = 14.sp
                     )
                     Text(
-                        text = "Tashkent, Uzbekistan",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        text = repository.defaultAddress()?.addressLine?.ifBlank { "Toshkent sh., Chilonzor" } ?: "Toshkent shahri",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        maxLines = 1
                     )
                 }
             }
@@ -100,7 +103,7 @@ fun HomeScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.Search,
-                        contentDescription = "Search",
+                        contentDescription = "Qidiruv",
                         tint = TextPrimary,
                         modifier = Modifier.size(20.dp)
                     )
@@ -116,7 +119,7 @@ fun HomeScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.Notifications,
-                        contentDescription = "Notifications",
+                        contentDescription = "Xabarlar",
                         tint = TextPrimary,
                         modifier = Modifier.size(20.dp)
                     )
@@ -156,7 +159,7 @@ fun HomeScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Provide the best\nfood for you",
+                        text = "Eng mazali taomlar\nsiz uchun tayyor",
                         style = MaterialTheme.typography.headlineSmall.copy(
                             color = TextWhite,
                             fontWeight = FontWeight.Bold,
@@ -180,11 +183,11 @@ fun HomeScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Find by Category",
+                text = "Taomlar Menyusi",
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
             )
             Text(
-                text = "See All",
+                text = "Barchasi",
                 modifier = Modifier.clickable { repository.selectCategory(0L) },
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = PrimaryOrange,
@@ -341,7 +344,7 @@ fun FoodCard(
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
-            // Food Image Placeholder with Favorite Icon
+            // Food Image with Favorite Icon
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -350,10 +353,19 @@ fun FoodCard(
                     .background(Color(0xFFEBE3D5)),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = if (food.categoryId == 1L) "🍔" else if (food.categoryId == 2L) "🌮" else if (food.categoryId == 3L) "🥤" else "🍕",
-                    fontSize = 52.sp
-                )
+                if (food.imageUrl.isNotBlank() && food.imageUrl.startsWith("http")) {
+                    AsyncImage(
+                        model = food.imageUrl,
+                        contentDescription = food.name,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Text(
+                        text = if (food.categoryId == 1L) "🍔" else if (food.categoryId == 2L) "🌮" else if (food.categoryId == 3L) "🥤" else "🍕",
+                        fontSize = 52.sp
+                    )
+                }
 
                 // Favorite Heart Badge
                 Box(

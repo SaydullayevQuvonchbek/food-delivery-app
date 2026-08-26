@@ -55,6 +55,7 @@ Route::prefix('admin')->group(function () {
         // Live Chat
         Route::get('/chat', [AdminChatController::class, 'index'])->name('admin.chat.index');
         Route::post('/chat/{chatId}/reply', [AdminChatController::class, 'reply'])->name('admin.chat.reply');
+        Route::get('/api/chat/{chatId}/messages', [AdminChatController::class, 'getMessagesApi'])->name('admin.chat.messages-api');
 
         // Promokodlar & Aksiya
         Route::get('/promotions', [\App\Http\Controllers\Admin\PromotionController::class, 'index'])->name('admin.promotions.index');

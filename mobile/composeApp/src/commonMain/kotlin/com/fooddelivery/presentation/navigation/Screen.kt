@@ -23,4 +23,5 @@ sealed class Screen(val route: String) {
     data object Cards : Screen("cards")
     data object AddCard : Screen("add_card")
     data object HelpCenter : Screen("help_center")
+    data object OrdersHistory : Screen("orders_history")
 }

@@ -46,6 +46,37 @@ class ChatController extends Controller
 
         $chat->touch();
 
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['success' => true, 'message' => 'Xabar yuborildi']);
+        }
+
         return back()->with('success', 'Xabar yuborildi.');
+    }
+
+    public function getMessagesApi($chatId)
+    {
+        $chat = Chat::with('user')->findOrFail($chatId);
+        $messages = Message::with('sender')->where('chat_id', $chatId)->oldest()->get();
+        
+        // Mark incoming messages as read
+        Message::where('chat_id', $chatId)
+            ->where('sender_id', '!=', Auth::id())
+            ->update(['is_read' => true]);
+
+        return response()->json([
+            'success' => true,
+            'chat' => [
+                'id' => $chat->id,
+                'user_name' => $chat->user->full_name ?? 'Mijoz',
+                'user_phone' => $chat->user->phone ?? 'Tel ko\'rsatilmagan'
+            ],
+            'messages' => $messages->map(fn($m) => [
+                'id' => $m->id,
+                'sender_id' => $m->sender_id,
+                'is_me' => $m->sender_id == Auth::id(),
+                'text' => $m->text,
+                'time' => $m->created_at->format('H:i')
+            ])
+        ]);
     }
 }
