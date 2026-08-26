@@ -11,9 +11,15 @@ data class ApiResponse<T>(
 )
 
 @Serializable
+data class AuthData(
+    val user: User? = null,
+    val token: String? = null
+)
+
+@Serializable
 data class User(
     val id: Long = 0,
-    @SerialName("name")
+    @SerialName("full_name")
     val fullName: String = "",
     val email: String = "",
     val phone: String = "",

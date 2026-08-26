@@ -12,8 +12,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,10 +26,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fooddelivery.components.*
+import com.fooddelivery.data.repository.FoodDeliveryRepository
 import com.fooddelivery.theme.*
+import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(
+    repository: FoodDeliveryRepository,
     onLoginSuccess: () -> Unit,
     onNavigateToRegister: () -> Unit,
     onNavigateToForgotPassword: () -> Unit
@@ -37,16 +40,19 @@ fun LoginScreen(
     var email by remember { mutableStateOf("Albertstevano@gmail.com") }
     var password by remember { mutableStateOf("password123") }
     var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(BackgroundWhite)
+            .statusBarsPadding()
             .padding(horizontal = 24.dp)
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.Start
     ) {
-        Spacer(Modifier.height(60.dp))
+        Spacer(Modifier.height(40.dp))
 
         Text(
             text = "Login to your\naccount.",
@@ -61,20 +67,52 @@ fun LoginScreen(
             style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
         )
 
-        Spacer(Modifier.height(36.dp))
+        if (errorMessage != null) {
+            Spacer(Modifier.height(16.dp))
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                color = DangerRed.copy(alpha = 0.1f)
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.ErrorOutline,
+                        contentDescription = null,
+                        tint = DangerRed,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = errorMessage ?: "",
+                        style = MaterialTheme.typography.bodySmall.copy(color = DangerRed)
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(28.dp))
 
         AppInputField(
             value = email,
-            onValueChange = { email = it },
+            onValueChange = {
+                email = it
+                errorMessage = null
+            },
             label = "Email Address",
             placeholder = "Enter Email"
         )
 
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(18.dp))
 
         AppInputField(
             value = password,
-            onValueChange = { password = it },
+            onValueChange = {
+                password = it
+                errorMessage = null
+            },
             label = "Password",
             placeholder = "Password",
             isPassword = true
@@ -102,17 +140,55 @@ fun LoginScreen(
             text = "Sign In",
             isLoading = isLoading,
             onClick = {
-                isLoading = true
-                onLoginSuccess()
+                scope.launch {
+                    if (email.isBlank()) {
+                        errorMessage = "Iltimos, email manzilini kiriting"
+                        return@launch
+                    }
+                    isLoading = true
+                    errorMessage = null
+                    val result = repository.login(email.trim(), password)
+                    isLoading = false
+                    result.onSuccess {
+                        onLoginSuccess()
+                    }.onFailure { err ->
+                        errorMessage = err.message ?: "Email yoki parol xato"
+                    }
+                }
             }
         )
 
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(16.dp))
+
+        // Demo Fast-Track button
+        OutlinedButton(
+            onClick = {
+                scope.launch {
+                    repository.login("Albertstevano@gmail.com", "password123")
+                    onLoginSuccess()
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            shape = RoundedCornerShape(16.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, PrimaryOrangeLight)
+        ) {
+            Text(
+                text = "⚡ Demo Fast-Track Sign In",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = PrimaryOrange,
+                    fontWeight = FontWeight.Bold
+                )
+            )
+        }
+
+        Spacer(Modifier.height(28.dp))
 
         // Social Logins
         SocialLoginSection()
 
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(28.dp))
 
         // Footer Register Link
         Row(
@@ -140,24 +216,28 @@ fun LoginScreen(
 
 @Composable
 fun RegisterScreen(
+    repository: FoodDeliveryRepository,
     onRegisterSuccess: () -> Unit,
     onNavigateToLogin: () -> Unit
 ) {
-    var email by remember { mutableStateOf("Albertstevano@gmail.com") }
-    var userName by remember { mutableStateOf("Albertstevano") }
-    var password by remember { mutableStateOf("password123") }
+    var email by remember { mutableStateOf("") }
+    var userName by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
     var termsAgreed by remember { mutableStateOf(true) }
     var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(BackgroundWhite)
+            .statusBarsPadding()
             .padding(horizontal = 24.dp)
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.Start
     ) {
-        Spacer(Modifier.height(60.dp))
+        Spacer(Modifier.height(40.dp))
 
         Text(
             text = "Create your new\naccount",
@@ -172,11 +252,40 @@ fun RegisterScreen(
             style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
         )
 
-        Spacer(Modifier.height(32.dp))
+        if (errorMessage != null) {
+            Spacer(Modifier.height(16.dp))
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                color = DangerRed.copy(alpha = 0.1f)
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.ErrorOutline,
+                        contentDescription = null,
+                        tint = DangerRed,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = errorMessage ?: "",
+                        style = MaterialTheme.typography.bodySmall.copy(color = DangerRed)
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(28.dp))
 
         AppInputField(
             value = email,
-            onValueChange = { email = it },
+            onValueChange = {
+                email = it
+                errorMessage = null
+            },
             label = "Email Address",
             placeholder = "Enter Email"
         )
@@ -185,7 +294,10 @@ fun RegisterScreen(
 
         AppInputField(
             value = userName,
-            onValueChange = { userName = it },
+            onValueChange = {
+                userName = it
+                errorMessage = null
+            },
             label = "User Name",
             placeholder = "User Name"
         )
@@ -194,7 +306,10 @@ fun RegisterScreen(
 
         AppInputField(
             value = password,
-            onValueChange = { password = it },
+            onValueChange = {
+                password = it
+                errorMessage = null
+            },
             label = "Password",
             placeholder = "Password",
             isPassword = true
@@ -248,8 +363,29 @@ fun RegisterScreen(
             enabled = termsAgreed,
             isLoading = isLoading,
             onClick = {
-                isLoading = true
-                onRegisterSuccess()
+                scope.launch {
+                    if (email.isBlank() || !email.contains("@")) {
+                        errorMessage = "To'g'ri email kiriting"
+                        return@launch
+                    }
+                    if (userName.isBlank()) {
+                        errorMessage = "Ismingizni kiriting"
+                        return@launch
+                    }
+                    if (password.length < 6) {
+                        errorMessage = "Parol kamida 6 ta belgidan iborat bo'lsin"
+                        return@launch
+                    }
+                    isLoading = true
+                    errorMessage = null
+                    val result = repository.register(userName.trim(), email.trim(), password)
+                    isLoading = false
+                    result.onSuccess {
+                        onRegisterSuccess()
+                    }.onFailure { err ->
+                        errorMessage = err.message ?: "Ro'yxatdan o'tishda xatolik"
+                    }
+                }
             }
         )
 
@@ -284,16 +420,20 @@ fun RegisterScreen(
 
 @Composable
 fun ForgotPasswordScreen(
+    repository: FoodDeliveryRepository,
     onBackClick: () -> Unit,
     onContinueToOtp: () -> Unit
 ) {
     var email by remember { mutableStateOf("Albertstevano@gmail.com") }
-    var selectedMethod by remember { mutableStateOf("email") } // "whatsapp" or "email"
+    var selectedMethod by remember { mutableStateOf("email") }
+    var isLoading by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(BackgroundWhite)
+            .statusBarsPadding()
     ) {
         AppHeaderBar(
             title = "",
@@ -341,7 +481,15 @@ fun ForgotPasswordScreen(
 
             AppPrimaryButton(
                 text = "Continue",
-                onClick = onContinueToOtp
+                isLoading = isLoading,
+                onClick = {
+                    scope.launch {
+                        isLoading = true
+                        repository.forgotPassword(email)
+                        isLoading = false
+                        onContinueToOtp()
+                    }
+                }
             )
 
             Spacer(Modifier.height(30.dp))
@@ -416,15 +564,20 @@ private fun OptionCard(
 
 @Composable
 fun OtpVerificationScreen(
+    repository: FoodDeliveryRepository,
     onBackClick: () -> Unit,
     onVerified: () -> Unit
 ) {
     var otpCode by remember { mutableStateOf("9627") }
+    var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(BackgroundWhite)
+            .statusBarsPadding()
     ) {
         AppHeaderBar(
             title = "OTP",
@@ -445,18 +598,31 @@ fun OtpVerificationScreen(
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "Enter the verification code we send you on:\nAlberts******@gmail.com",
+                text = "Enter the verification code we send you on:\nAlberts******@gmail.com\n(Demo Code: 9627)",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = TextSecondary,
                     textAlign = TextAlign.Center
                 )
             )
 
-            Spacer(Modifier.height(36.dp))
+            if (errorMessage != null) {
+                Spacer(Modifier.height(14.dp))
+                Text(
+                    text = errorMessage ?: "",
+                    style = MaterialTheme.typography.bodySmall.copy(color = DangerRed)
+                )
+            }
+
+            Spacer(Modifier.height(30.dp))
 
             OtpCodeInput(
                 otpValue = otpCode,
-                onOtpChange = { if (it.length <= 4) otpCode = it }
+                onOtpChange = {
+                    if (it.length <= 4) {
+                        otpCode = it
+                        errorMessage = null
+                    }
+                }
             )
 
             Spacer(Modifier.height(24.dp))
@@ -475,25 +641,32 @@ fun OtpVerificationScreen(
                         color = PrimaryOrange,
                         fontWeight = FontWeight.Bold
                     ),
-                    modifier = Modifier.clickable { /* Resend code */ }
+                    modifier = Modifier.clickable {
+                        scope.launch {
+                            repository.forgotPassword("Albertstevano@gmail.com")
+                        }
+                    }
                 )
             }
-
-            Spacer(Modifier.height(10.dp))
-
-            Text(
-                text = "â± 09.00",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = TextSecondary,
-                    fontWeight = FontWeight.SemiBold
-                )
-            )
 
             Spacer(Modifier.weight(1f))
 
             AppPrimaryButton(
                 text = "Continue",
-                onClick = onVerified
+                isLoading = isLoading,
+                onClick = {
+                    scope.launch {
+                        isLoading = true
+                        errorMessage = null
+                        val res = repository.verifyOtp("Albertstevano@gmail.com", otpCode)
+                        isLoading = false
+                        res.onSuccess {
+                            onVerified()
+                        }.onFailure { err ->
+                            errorMessage = err.message
+                        }
+                    }
+                }
             )
 
             Spacer(Modifier.height(30.dp))
@@ -503,18 +676,22 @@ fun OtpVerificationScreen(
 
 @Composable
 fun ResetPasswordScreen(
+    repository: FoodDeliveryRepository,
     onBackClick: () -> Unit,
     onSuccess: () -> Unit
 ) {
     var newPassword by remember { mutableStateOf("newpass123") }
     var confirmPassword by remember { mutableStateOf("newpass123") }
     var showSuccessDialog by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .background(BackgroundWhite)
+                .statusBarsPadding()
         ) {
             AppHeaderBar(
                 title = "Reset Password",
@@ -572,7 +749,15 @@ fun ResetPasswordScreen(
 
                 AppPrimaryButton(
                     text = "Verify Account",
-                    onClick = { showSuccessDialog = true }
+                    isLoading = isLoading,
+                    onClick = {
+                        scope.launch {
+                            isLoading = true
+                            repository.resetPassword("Albertstevano@gmail.com", newPassword)
+                            isLoading = false
+                            showSuccessDialog = true
+                        }
+                    }
                 )
 
                 Spacer(Modifier.height(30.dp))
@@ -620,7 +805,7 @@ fun PasswordChangedModal(
                 )
                 Spacer(Modifier.height(24.dp))
 
-                // Success Icon with Shield / Confetti
+                // Success Icon with Shield
                 Box(
                     modifier = Modifier
                         .size(80.dp)
@@ -687,7 +872,7 @@ private fun SocialLoginSection() {
         ) {
             SocialIconButton(text = "G", color = GoogleRed)
             SocialIconButton(text = "f", color = FacebookBlue)
-            SocialIconButton(text = "ï£¿", color = AppleBlack)
+            SocialIconButton(text = "", color = AppleBlack)
         }
     }
 }

@@ -7,6 +7,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import com.fooddelivery.components.AppBottomBar
+import com.fooddelivery.components.BackHandler
 import com.fooddelivery.data.repository.FoodDeliveryRepository
 import com.fooddelivery.presentation.auth.*
 import com.fooddelivery.presentation.cart.CartScreen
@@ -28,7 +29,37 @@ import com.fooddelivery.theme.FoodDeliveryTheme
 fun App() {
     val repository = remember { FoodDeliveryRepository() }
     val cartItems by repository.cartItems.collectAsState()
-    var currentScreen by remember { mutableStateOf<Screen>(Screen.Onboarding) }
+    val isLoggedIn by repository.isLoggedIn.collectAsState()
+    val hasSeenOnboarding by repository.hasSeenOnboarding.collectAsState()
+
+    // BackStack navigation list
+    val backStack = remember {
+        mutableStateListOf<Screen>(
+            if (isLoggedIn) Screen.Home else if (hasSeenOnboarding) Screen.Login else Screen.Onboarding
+        )
+    }
+
+    val currentScreen = backStack.lastOrNull() ?: Screen.Home
+
+    fun navigateTo(screen: Screen, clearStack: Boolean = false) {
+        if (clearStack) {
+            backStack.clear()
+        }
+        backStack.add(screen)
+    }
+
+    fun popBack(): Boolean {
+        if (backStack.size > 1) {
+            backStack.removeAt(backStack.lastIndex)
+            return true
+        }
+        return false
+    }
+
+    // Intercept hardware/gesture Back button
+    BackHandler(enabled = backStack.size > 1) {
+        popBack()
+    }
 
     FoodDeliveryTheme {
         val showBottomBar = when (currentScreen) {
@@ -51,12 +82,16 @@ fun App() {
                         currentRoute = currentRoute,
                         cartItemCount = cartItems.sumOf { it.quantity },
                         onNavigate = { route ->
-                            currentScreen = when (route) {
+                            val targetScreen = when (route) {
                                 "home" -> Screen.Home
                                 "cart" -> Screen.Cart
                                 "chat" -> Screen.ChatList
                                 "profile" -> Screen.Profile
                                 else -> Screen.Home
+                            }
+                            if (currentScreen != targetScreen) {
+                                backStack.clear()
+                                backStack.add(targetScreen)
                             }
                         }
                     )
@@ -71,148 +106,159 @@ fun App() {
                 when (val screen = currentScreen) {
                     is Screen.Onboarding -> {
                         OnboardingScreen(
-                            onFinish = { currentScreen = Screen.Login }
+                            onFinish = {
+                                repository.completeOnboarding()
+                                navigateTo(Screen.Login, clearStack = true)
+                            }
                         )
                     }
                     is Screen.Login -> {
                         LoginScreen(
-                            onLoginSuccess = { currentScreen = Screen.Home },
-                            onNavigateToRegister = { currentScreen = Screen.Register },
-                            onNavigateToForgotPassword = { currentScreen = Screen.ForgotPassword }
+                            repository = repository,
+                            onLoginSuccess = { navigateTo(Screen.Home, clearStack = true) },
+                            onNavigateToRegister = { navigateTo(Screen.Register) },
+                            onNavigateToForgotPassword = { navigateTo(Screen.ForgotPassword) }
                         )
                     }
                     is Screen.Register -> {
                         RegisterScreen(
-                            onRegisterSuccess = { currentScreen = Screen.Home },
-                            onNavigateToLogin = { currentScreen = Screen.Login }
+                            repository = repository,
+                            onRegisterSuccess = { navigateTo(Screen.Home, clearStack = true) },
+                            onNavigateToLogin = { popBack() }
                         )
                     }
                     is Screen.ForgotPassword -> {
                         ForgotPasswordScreen(
-                            onBackClick = { currentScreen = Screen.Login },
-                            onContinueToOtp = { currentScreen = Screen.OtpVerification }
+                            repository = repository,
+                            onBackClick = { popBack() },
+                            onContinueToOtp = { navigateTo(Screen.OtpVerification) }
                         )
                     }
                     is Screen.OtpVerification -> {
                         OtpVerificationScreen(
-                            onBackClick = { currentScreen = Screen.ForgotPassword },
-                            onVerified = { currentScreen = Screen.ResetPassword }
+                            repository = repository,
+                            onBackClick = { popBack() },
+                            onVerified = { navigateTo(Screen.ResetPassword) }
                         )
                     }
                     is Screen.ResetPassword -> {
                         ResetPasswordScreen(
-                            onBackClick = { currentScreen = Screen.OtpVerification },
-                            onSuccess = { currentScreen = Screen.Login }
+                            repository = repository,
+                            onBackClick = { popBack() },
+                            onSuccess = { navigateTo(Screen.Login, clearStack = true) }
                         )
                     }
                     is Screen.Home -> {
                         HomeScreen(
                             repository = repository,
-                            onNavigateToSearch = { currentScreen = Screen.Search },
-                            onNavigateToNotifications = { currentScreen = Screen.Notifications },
-                            onNavigateToFoodDetail = { foodId -> currentScreen = Screen.FoodDetail(foodId) }
+                            onNavigateToSearch = { navigateTo(Screen.Search) },
+                            onNavigateToNotifications = { navigateTo(Screen.Notifications) },
+                            onNavigateToFoodDetail = { foodId -> navigateTo(Screen.FoodDetail(foodId)) }
                         )
                     }
                     is Screen.FoodDetail -> {
                         FoodDetailScreen(
                             foodId = screen.foodId,
                             repository = repository,
-                            onBackClick = { currentScreen = Screen.Home },
-                            onNavigateToCart = { currentScreen = Screen.Cart }
+                            onBackClick = { popBack() },
+                            onNavigateToCart = { navigateTo(Screen.Cart) }
                         )
                     }
                     is Screen.Search -> {
                         SearchScreen(
                             repository = repository,
-                            onBackClick = { currentScreen = Screen.Home },
-                            onNavigateToFoodDetail = { foodId -> currentScreen = Screen.FoodDetail(foodId) }
+                            onBackClick = { popBack() },
+                            onNavigateToFoodDetail = { foodId -> navigateTo(Screen.FoodDetail(foodId)) }
                         )
                     }
                     is Screen.Cart -> {
                         CartScreen(
                             repository = repository,
-                            onNavigateToHome = { currentScreen = Screen.Home },
-                            onNavigateToCheckout = { currentScreen = Screen.Checkout }
+                            onNavigateToHome = { navigateTo(Screen.Home, clearStack = true) },
+                            onNavigateToCheckout = { navigateTo(Screen.Checkout) }
                         )
                     }
                     is Screen.Checkout -> {
                         PaymentAddressScreen(
                             repository = repository,
-                            onBackClick = { currentScreen = Screen.Cart },
-                            onOrderSuccess = { currentScreen = Screen.DeliveryTracking }
+                            onBackClick = { popBack() },
+                            onOrderSuccess = { navigateTo(Screen.DeliveryTracking) }
                         )
                     }
                     is Screen.DeliveryTracking -> {
                         DeliveryTrackingScreen(
                             repository = repository,
-                            onBackClick = { currentScreen = Screen.Home },
-                            onNavigateToChat = { courierId: Long -> currentScreen = Screen.Chat(courierId) },
-                            onNavigateToCall = { courierId: Long -> currentScreen = Screen.AudioCall(courierId) }
+                            onBackClick = { navigateTo(Screen.Home, clearStack = true) },
+                            onNavigateToChat = { courierId: Long -> navigateTo(Screen.Chat(courierId)) },
+                            onNavigateToCall = { courierId: Long -> navigateTo(Screen.AudioCall(courierId)) }
                         )
                     }
                     is Screen.ChatList -> {
                         ChatListScreen(
                             repository = repository,
-                            onNavigateToChat = { courierId: Long -> currentScreen = Screen.Chat(courierId) }
+                            onNavigateToChat = { courierId: Long -> navigateTo(Screen.Chat(courierId)) }
                         )
                     }
                     is Screen.Chat -> {
                         ChatScreen(
                             courierId = screen.courierId,
                             repository = repository,
-                            onBackClick = { currentScreen = Screen.ChatList },
-                            onNavigateToCall = { courierId: Long -> currentScreen = Screen.AudioCall(courierId) }
+                            onBackClick = { popBack() },
+                            onNavigateToCall = { courierId: Long -> navigateTo(Screen.AudioCall(courierId)) }
                         )
                     }
                     is Screen.AudioCall -> {
                         AudioCallScreen(
                             courierId = screen.courierId,
-                            onEndCall = { currentScreen = Screen.Chat(screen.courierId) }
+                            onEndCall = { popBack() }
                         )
                     }
                     is Screen.Notifications -> {
                         NotificationScreen(
                             repository = repository,
-                            onBackClick = { currentScreen = Screen.Home }
+                            onBackClick = { popBack() }
                         )
                     }
                     is Screen.Profile -> {
                         ProfileScreen(
                             repository = repository,
-                            onNavigateToPersonalData = { currentScreen = Screen.PersonalData },
-                            onNavigateToSettings = { currentScreen = Screen.Settings },
-                            onNavigateToCards = { currentScreen = Screen.Cards },
-                            onNavigateToHelpCenter = { currentScreen = Screen.HelpCenter },
-                            onSignOut = { currentScreen = Screen.Login }
+                            onNavigateToPersonalData = { navigateTo(Screen.PersonalData) },
+                            onNavigateToSettings = { navigateTo(Screen.Settings) },
+                            onNavigateToCards = { navigateTo(Screen.Cards) },
+                            onNavigateToHelpCenter = { navigateTo(Screen.HelpCenter) },
+                            onSignOut = {
+                                repository.logout()
+                                navigateTo(Screen.Login, clearStack = true)
+                            }
                         )
                     }
                     is Screen.PersonalData -> {
                         PersonalDataScreen(
                             repository = repository,
-                            onBackClick = { currentScreen = Screen.Profile }
+                            onBackClick = { popBack() }
                         )
                     }
                     is Screen.Settings -> {
                         SettingsScreen(
-                            onBackClick = { currentScreen = Screen.Profile }
+                            onBackClick = { popBack() }
                         )
                     }
                     is Screen.Cards -> {
                         CardsScreen(
                             repository = repository,
-                            onBackClick = { currentScreen = Screen.Profile },
-                            onNavigateToAddCard = { currentScreen = Screen.AddCard }
+                            onBackClick = { popBack() },
+                            onNavigateToAddCard = { navigateTo(Screen.AddCard) }
                         )
                     }
                     is Screen.AddCard -> {
                         AddCardScreen(
                             repository = repository,
-                            onBackClick = { currentScreen = Screen.Cards }
+                            onBackClick = { popBack() }
                         )
                     }
                     is Screen.HelpCenter -> {
                         HelpCenterScreen(
-                            onBackClick = { currentScreen = Screen.Profile }
+                            onBackClick = { popBack() }
                         )
                     }
                 }
