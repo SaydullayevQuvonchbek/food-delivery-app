@@ -12,8 +12,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 class FoodDeliveryRepository {
 
@@ -511,6 +512,30 @@ class FoodDeliveryRepository {
                 dateOfBirth = dob,
                 gender = gender
             )
+        }
+
+        scope.launch {
+            try {
+                httpClient.put("${ApiConfig.BASE_URL}/auth/profile") {
+                    contentType(ContentType.Application.Json)
+                    headers {
+                        append(HttpHeaders.Accept, "application/json")
+                        ApiConfig.AUTH_TOKEN?.let { token ->
+                            append(HttpHeaders.Authorization, "Bearer $token")
+                        }
+                    }
+                    setBody(
+                        buildJsonObject {
+                            put("full_name", name)
+                            if (phone.isNotBlank()) put("phone", phone)
+                            if (dob.isNotBlank()) put("date_of_birth", dob)
+                            put("gender", gender)
+                        }
+                    )
+                }
+            } catch (e: Exception) {
+                // Keep local updated state if offline
+            }
         }
     }
 
