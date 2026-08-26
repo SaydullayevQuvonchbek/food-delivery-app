@@ -492,14 +492,30 @@ class FoodDeliveryRepository {
 
     fun sendChatMessage(text: String) {
         if (text.isNotBlank()) {
-            _chatMessages.update { list ->
-                list + ChatMessage(
-                    id = list.size.toLong() + 1,
-                    senderId = _currentUser.value.id,
-                    text = text,
-                    timestamp = "Now",
-                    isFromMe = true
-                )
+            val newMessage = ChatMessage(
+                id = _chatMessages.value.size.toLong() + 1,
+                senderId = _currentUser.value.id,
+                text = text,
+                timestamp = "Now",
+                isFromMe = true
+            )
+            _chatMessages.update { list -> list + newMessage }
+
+            scope.launch {
+                try {
+                    httpClient.post("${ApiConfig.BASE_URL}/chats/1/messages") {
+                        contentType(ContentType.Application.Json)
+                        headers {
+                            append(HttpHeaders.Accept, "application/json")
+                            ApiConfig.AUTH_TOKEN?.let { token ->
+                                append(HttpHeaders.Authorization, "Bearer $token")
+                            }
+                        }
+                        setBody(buildJsonObject { put("text", text) })
+                    }
+                } catch (e: Exception) {
+                    // Keep message locally if offline
+                }
             }
         }
     }
